@@ -1,5 +1,12 @@
 {
   "name": "goiandy-orcamentos",
   "compatibility_date": "2025-09-01",
-  "pages_build_output_dir": "./dist"
+  "pages_build_output_dir": "./dist",
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "goiandy-orcamentos-db",
+      "database_id": "5f86046d-2acb-4e5c-a134-432704cc262e"
+    }
+  ]
 }
