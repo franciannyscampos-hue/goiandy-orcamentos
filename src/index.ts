@@ -2,6 +2,7 @@ import { Hono } from 'hono'
 import type { Bindings, Variaveis } from './types'
 import { prepararBanco } from './db/preparar'
 import { rotasAuth } from './rotas/auth'
+import { rotasIndustrias, rotasTransportadoras, rotasVendedores } from './rotas/cadastros'
 
 const app = new Hono<{ Bindings: Bindings; Variables: Variaveis }>()
 
@@ -33,6 +34,9 @@ app.use('/api/*', async (c, next) => {
 })
 
 app.route('/api/auth', rotasAuth)
+app.route('/api/vendedores', rotasVendedores)
+app.route('/api/transportadoras', rotasTransportadoras)
+app.route('/api/industrias', rotasIndustrias)
 
 app.onError((erro, c) => {
   console.error(erro)

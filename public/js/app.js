@@ -1,30 +1,12 @@
-// Tela inicial da equipe: login, troca de senha provisória e um painel provisório.
+// Entrada do painel da equipe: login, troca de senha provisória, menu e navegação.
+import { el, api, pode } from './util.js'
+import { telaCadastro } from './cadastro.js'
+import { telas } from './telas.js'
+
 const raiz = document.getElementById('app')
 
-async function api(caminho, opcoes = {}) {
-  const resposta = await fetch('/api' + caminho, {
-    method: opcoes.metodo || 'GET',
-    headers: opcoes.corpo ? { 'Content-Type': 'application/json' } : undefined,
-    body: opcoes.corpo ? JSON.stringify(opcoes.corpo) : undefined,
-    credentials: 'same-origin'
-  })
-  const dados = await resposta.json().catch(() => ({}))
-  return { ok: resposta.ok, status: resposta.status, dados }
-}
-
-function el(tag, atributos = {}, ...filhos) {
-  const e = document.createElement(tag)
-  for (const [k, v] of Object.entries(atributos)) {
-    if (k === 'class') e.className = v
-    else if (k.startsWith('on')) e.addEventListener(k.slice(2), v)
-    else e.setAttribute(k, v)
-  }
-  for (const f of filhos) e.append(f)
-  return e
-}
-
 function campo(rotulo, id, tipo, extra = {}) {
-  return [el('label', { for: id }, rotulo), el('input', { id, name: id, type: tipo, required: '', ...extra })]
+  return [el('label', { for: id }, rotulo), el('input', { id, name: id, type: tipo, required: true, ...extra })]
 }
 
 function mostrarErro(form, texto) {
@@ -33,7 +15,9 @@ function mostrarErro(form, texto) {
 }
 
 function telaLogin() {
-  const form = el('form', { class: 'cartao' },
+  const form = el(
+    'form',
+    { class: 'cartao' },
     el('h1', {}, 'Goiandy Orçamentos'),
     el('p', { class: 'sub' }, 'Acesso da equipe'),
     ...campo('E-mail', 'email', 'email', { autocomplete: 'username' }),
@@ -50,12 +34,15 @@ function telaLogin() {
     if (!r.ok) return mostrarErro(form, r.dados.erro || 'Não foi possível entrar.')
     iniciar()
   })
+  raiz.className = 'centro'
   raiz.replaceChildren(form)
   form.email.focus()
 }
 
-function telaTrocarSenha(usuario) {
-  const form = el('form', { class: 'cartao' },
+function telaTrocarSenha() {
+  const form = el(
+    'form',
+    { class: 'cartao' },
     el('h1', {}, 'Crie sua senha'),
     el('p', { class: 'sub' }, 'A senha provisória precisa ser trocada antes de continuar. Use pelo menos 10 caracteres.'),
     ...campo('Senha provisória', 'atual', 'password', { autocomplete: 'current-password' }),
@@ -74,31 +61,56 @@ function telaTrocarSenha(usuario) {
     if (!r.ok) return mostrarErro(form, r.dados.erro || 'Não foi possível trocar a senha.')
     iniciar()
   })
+  raiz.className = 'centro'
   raiz.replaceChildren(form)
   form.atual.focus()
 }
 
-function telaPainel(usuario) {
-  const sair = el('button', { type: 'button', class: 'secundario' }, 'Sair')
-  sair.addEventListener('click', async () => {
-    await api('/auth/logout', { metodo: 'POST', corpo: {} })
-    iniciar()
-  })
-  raiz.replaceChildren(
-    el('div', { class: 'cartao' },
-      el('h1', {}, 'Olá, ' + usuario.nome),
-      el('p', { class: 'sub' }, 'Perfil: ' + usuario.perfil),
-      el('p', { class: 'mudo' }, 'O painel está em construção. Os cadastros chegam nas próximas etapas.'),
-      sair
-    )
+function telaInicio(usuario) {
+  return el(
+    'section',
+    { class: 'pagina' },
+    el('h2', {}, 'Olá, ' + usuario.nome),
+    el('p', { class: 'mudo' }, 'Perfil: ' + usuario.perfil + '. Use o menu acima para abrir os cadastros. Clientes, tabelas e itens chegam nas próximas etapas.')
   )
 }
 
+function painel(usuario) {
+  const menu = el('nav', { class: 'menu', 'aria-label': 'Principal' })
+  const conteudo = el('div', { class: 'conteudo' })
+  const itensMenu = [{ id: 'inicio', rotulo: 'Início' }]
+  for (const [id, t] of Object.entries(telas)) if (pode(usuario, t.permVer)) itensMenu.push({ id, rotulo: t.titulo })
+  for (const i of itensMenu) menu.append(el('a', { href: '#/' + i.id, 'data-id': i.id }, i.rotulo))
+
+  const sair = el('button', { type: 'button', class: 'link' }, 'Sair')
+  sair.addEventListener('click', async () => {
+    await api('/auth/logout', { metodo: 'POST', corpo: {} })
+    window.location.hash = ''
+    iniciar()
+  })
+
+  function rotear() {
+    const id = window.location.hash.replace('#/', '') || 'inicio'
+    const valido = itensMenu.some((i) => i.id === id) ? id : 'inicio'
+    for (const a of menu.querySelectorAll('a')) a.classList.toggle('ativo', a.dataset.id === valido)
+    conteudo.replaceChildren(valido === 'inicio' ? telaInicio(usuario) : telaCadastro(telas[valido], usuario))
+  }
+
+  window.onhashchange = rotear
+  raiz.className = 'painel'
+  raiz.replaceChildren(
+    el('header', { class: 'topo' }, el('strong', {}, 'Goiandy Orçamentos'), menu, el('span', { class: 'usuario' }, usuario.nome, ' · ', sair)),
+    conteudo
+  )
+  rotear()
+}
+
 async function iniciar() {
+  window.onhashchange = null
   const r = await api('/auth/me')
   if (!r.ok) return telaLogin()
-  if (r.dados.usuario.deve_trocar_senha) return telaTrocarSenha(r.dados.usuario)
-  telaPainel(r.dados.usuario)
+  if (r.dados.usuario.deve_trocar_senha) return telaTrocarSenha()
+  painel(r.dados.usuario)
 }
 
 iniciar()
