@@ -156,12 +156,13 @@ async function montarPdf(id) {
 
 // Depois de enviar: gera o PDF e manda para o servidor disparar o e-mail (se falhar, o orçamento já está salvo)
 async function enviarPdfPorEmail(id) {
-  try {
-    const blob = await montarPdf(id)
-    const r = await fetch(`/api/portal/orcamentos/${id}/pdf`, { method: 'POST', headers: { 'Content-Type': 'application/pdf' }, body: blob, credentials: 'same-origin' })
+  const mandar = async (tipo, corpo) => {
+    const r = await fetch(`/api/portal/orcamentos/${id}/pdf`, { method: 'POST', headers: { 'Content-Type': tipo }, body: corpo, credentials: 'same-origin' })
     const d = await r.json().catch(() => ({}))
     return !!(r.ok && d.email && d.email.enviado)
-  } catch { return false }
+  }
+  try { return await mandar('application/pdf', await montarPdf(id)) } catch { /* tenta sem anexo */ }
+  try { return await mandar('application/json', '{}') } catch { return false }
 }
 
 export async function baixarOrcamentoPdf(id, botao) {

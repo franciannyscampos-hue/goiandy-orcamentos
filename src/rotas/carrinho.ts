@@ -280,8 +280,10 @@ rotasCarrinho.post('/orcamentos/:id/pdf', exigirComprador(), async (c) => {
     ? await c.env.DB.prepare("SELECT id FROM orcamentos WHERE id = ? AND comprador_id = ? AND status <> 'carrinho'").bind(id, eu.id).first<{ id: number }>()
     : null
   if (!o) return c.json({ erro: 'Orçamento não encontrado.' }, 404)
-  const bytes = new Uint8Array(await c.req.arrayBuffer())
-  if (bytes.length < 100 || bytes.length > 5 * 1024 * 1024 || String.fromCharCode(...bytes.subarray(0, 4)) !== '%PDF') return c.json({ erro: 'PDF inválido.' }, 400)
+  // Se o PDF não pôde ser gerado, o navegador manda um JSON vazio e o e-mail sai sem anexo
+  const semPdf = (c.req.header('content-type') ?? '').includes('application/json')
+  const bytes = semPdf ? null : new Uint8Array(await c.req.arrayBuffer())
+  if (bytes && (bytes.length < 100 || bytes.length > 5 * 1024 * 1024 || String.fromCharCode(...bytes.subarray(0, 4)) !== '%PDF')) return c.json({ erro: 'PDF inválido.' }, 400)
   const ult = await c.env.DB.prepare("SELECT MAX(id) AS m FROM orcamento_historico WHERE orcamento_id = ? AND acao IN ('enviado','reenviado')").bind(id).first<{ m: number | null }>()
   const jaEmail = await c.env.DB.prepare("SELECT 1 AS x FROM orcamento_historico WHERE orcamento_id = ? AND acao = 'email' AND id > ?").bind(id, ult?.m ?? 0).first()
   if (jaEmail) return c.json({ ok: true, email: { enviado: false, erro: 'E-mail deste envio já foi disparado.' } })
