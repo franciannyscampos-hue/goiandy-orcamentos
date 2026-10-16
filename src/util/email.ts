@@ -67,7 +67,7 @@ function diagnostico(env: Bindings): string {
   const id = (env.GOOGLE_CLIENT_ID ?? '').trim()
   const sec = (env.GOOGLE_CLIENT_SECRET ?? '').trim()
   const tok = (env.GOOGLE_REFRESH_TOKEN ?? '').trim()
-  return `[ID: ${d(env.GOOGLE_CLIENT_ID)}, termina em .apps.googleusercontent.com: ${id.endsWith('.apps.googleusercontent.com') ? 'sim' : 'NÃO'}, começa com ${id.slice(0, 6)}; chave: ${d(env.GOOGLE_CLIENT_SECRET)}, começa com GOCSPX-: ${sec.startsWith('GOCSPX-') ? 'sim' : 'NÃO'}, final ...${sec.slice(-2)}; token: ${d(env.GOOGLE_REFRESH_TOKEN)}, começa com 1//: ${tok.startsWith('1//') ? 'sim' : 'NÃO'}]`
+  return `[ID: ${d(env.GOOGLE_CLIENT_ID)}, termina em .apps.googleusercontent.com: ${id.endsWith('.apps.googleusercontent.com') ? 'sim' : 'NÃO'}, começa com ${id.slice(0, 6)}; chave: ${d(env.GOOGLE_CLIENT_SECRET)}, começa com GOCSPX-: ${sec.startsWith('GOCSPX-') ? 'sim' : 'NÃO'}, final ...${sec.slice(-2)}; token: ${d(env.GOOGLE_REFRESH_TOKEN)}, começa com 1//: ${tok.startsWith('1//') ? 'sim' : 'NÃO'}, só caracteres válidos: ${/^[A-Za-z0-9_\-\/.]+$/.test(tok) ? 'sim' : 'NÃO (tem espaço, aspas ou outro símbolo)'}, final ...${tok.slice(-3)}; chave só caracteres válidos: ${/^[A-Za-z0-9_\-]+$/.test(sec) ? 'sim' : 'NÃO'}]`
 }
 
 async function tokenDeAcesso(env: Bindings): Promise<string> {
