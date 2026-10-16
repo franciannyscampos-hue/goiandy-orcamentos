@@ -44,6 +44,24 @@ rotasOrcamentos.get('/', exigirEquipe(), async (c) => {
   return c.json({ itens: r.results, total: total?.n ?? 0, pagina, por_pagina: 50, contagem: Object.fromEntries(cont.results.map((x) => [x.status, x.n])) })
 })
 
+// Foto de item e logo da indústria para montar o PDF (liberado a quem enxerga orçamentos)
+rotasOrcamentos.get('/foto/:id', exigirEquipe(), async (c) => {
+  if (!escopo(c.get('usuario'))) return c.json({ erro: 'Você não tem permissão para isso.' }, 403)
+  const f = await c.env.DB.prepare('SELECT chave, tipo_conteudo FROM fotos WHERE id = ?').bind(Number(c.req.param('id'))).first<{ chave: string; tipo_conteudo: string }>()
+  if (!f) return c.json({ erro: 'Foto não encontrada.' }, 404)
+  const obj = await c.env.ARQUIVOS.get(f.chave)
+  if (!obj) return c.json({ erro: 'Foto não encontrada.' }, 404)
+  return new Response(obj.body, { headers: { 'Content-Type': f.tipo_conteudo || 'image/jpeg', 'Cache-Control': 'private, max-age=3600' } })
+})
+rotasOrcamentos.get('/logo/:id', exigirEquipe(), async (c) => {
+  if (!escopo(c.get('usuario'))) return c.json({ erro: 'Você não tem permissão para isso.' }, 403)
+  const i = await c.env.DB.prepare('SELECT logo_chave, logo_tipo FROM industrias WHERE id = ?').bind(Number(c.req.param('id'))).first<{ logo_chave: string; logo_tipo: string }>()
+  if (!i?.logo_chave) return c.json({ erro: 'Sem logo.' }, 404)
+  const obj = await c.env.ARQUIVOS.get(i.logo_chave)
+  if (!obj) return c.json({ erro: 'Sem logo.' }, 404)
+  return new Response(obj.body, { headers: { 'Content-Type': i.logo_tipo || 'image/png', 'Cache-Control': 'private, max-age=3600' } })
+})
+
 rotasOrcamentos.get('/:id', exigirEquipe(), async (c) => {
   const e = escopo(c.get('usuario'))
   if (!e) return c.json({ erro: 'Você não tem permissão para isso.' }, 403)
@@ -58,7 +76,7 @@ rotasOrcamentos.get('/:id', exigirEquipe(), async (c) => {
       ).bind(id, ...e.args).first()
     : null
   if (!o) return c.json({ erro: 'Orçamento não encontrado.' }, 404)
-  const itens = await c.env.DB.prepare('SELECT item_id AS id, referencia, descricao, codigo_barras, ncm, qtd, preco_unit, ipi, promocao, total_linha FROM orcamento_itens WHERE orcamento_id = ? ORDER BY id').bind(id).all()
+  const itens = await c.env.DB.prepare('SELECT oi.item_id AS id, oi.referencia, oi.descricao, oi.codigo_barras, oi.ncm, oi.qtd, oi.preco_unit, oi.ipi, oi.promocao, oi.total_linha, (SELECT f.id FROM fotos f WHERE f.item_id = oi.item_id ORDER BY f.posicao LIMIT 1) AS foto_id FROM orcamento_itens oi WHERE oi.orcamento_id = ? ORDER BY oi.id').bind(id).all()
   return c.json({ orcamento: o, itens: itens.results })
 })
 

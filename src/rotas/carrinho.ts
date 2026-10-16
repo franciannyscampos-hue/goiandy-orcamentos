@@ -217,10 +217,12 @@ rotasCarrinho.get('/orcamentos/:id', exigirComprador(), async (c) => {
       ).bind(id, eu.id).first<Record<string, unknown>>()
     : null
   if (!o) return c.json({ erro: 'Orçamento não encontrado.' }, 404)
-  const itens = await c.env.DB.prepare('SELECT item_id AS id, referencia, descricao, qtd, preco_unit, ipi, promocao, total_linha FROM orcamento_itens WHERE orcamento_id = ? ORDER BY id').bind(id).all<Record<string, unknown>>()
+  const itens = await c.env.DB.prepare('SELECT oi.item_id AS id, oi.referencia, oi.descricao, oi.codigo_barras, oi.ncm, oi.qtd, oi.preco_unit, oi.ipi, oi.promocao, oi.total_linha, (SELECT f.id FROM fotos f WHERE f.item_id = oi.item_id ORDER BY f.posicao LIMIT 1) AS foto_id FROM orcamento_itens oi WHERE oi.orcamento_id = ? ORDER BY oi.id').bind(id).all<Record<string, unknown>>()
   const ver = eu.ver_precos
-  const orc = { id: o.id, status: o.status, industria: o.industria, tabela_nome: o.tabela_nome, tabela_tipo: o.tabela_tipo, tabela_prazo: o.tabela_prazo, transportadora_texto: o.transportadora_texto, observacao_cliente: o.observacao_cliente, enviado_em: o.enviado_em, qtd_total: o.qtd_total, edicao_liberada: !!o.edicao_liberada && (o.status === 'Novo' || o.status === 'Em atendimento'), ...(ver ? { subtotal: o.subtotal, ipi_total: o.ipi_total, total: o.total } : {}) }
-  return c.json({ ver_precos: ver, orcamento: orc, itens: itens.results.map((x) => (ver ? x : { id: x.id, referencia: x.referencia, descricao: x.descricao, qtd: x.qtd })) })
+  const ind = await c.env.DB.prepare("SELECT (logo_chave <> '') AS tem_logo FROM industrias WHERE id = ?").bind(o.industria_id).first<{ tem_logo: number }>()
+  const cli = await c.env.DB.prepare('SELECT razao_social, nome_fantasia, cnpj, inscricao_estadual, endereco, cep, cidade, uf, telefone, whatsapp, email_nfe, suframa, segmento FROM clientes WHERE id = ?').bind(eu.cliente_id).first()
+  const orc = { industria_id: o.industria_id, tem_logo: !!ind?.tem_logo, tipo_frete: o.tipo_frete, id: o.id, status: o.status, industria: o.industria, tabela_nome: o.tabela_nome, tabela_tipo: o.tabela_tipo, tabela_prazo: o.tabela_prazo, transportadora_texto: o.transportadora_texto, observacao_cliente: o.observacao_cliente, enviado_em: o.enviado_em, qtd_total: o.qtd_total, edicao_liberada: !!o.edicao_liberada && (o.status === 'Novo' || o.status === 'Em atendimento'), ...(ver ? { subtotal: o.subtotal, ipi_total: o.ipi_total, total: o.total } : {}) }
+  return c.json({ ver_precos: ver, cliente: cli, comprador: { nome: eu.nome, email: eu.email }, orcamento: orc, itens: itens.results.map((x) => (ver ? x : { id: x.id, referencia: x.referencia, descricao: x.descricao, codigo_barras: x.codigo_barras, ncm: x.ncm, qtd: x.qtd, foto_id: x.foto_id })) })
 })
 
 // Copia um orçamento já enviado para um carrinho novo (soma ao carrinho da mesma tabela, se já existir)

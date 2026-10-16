@@ -1,5 +1,6 @@
 // Carrinho e orçamentos do portal. O carrinho é sempre de uma tabela de preço (uma indústria só).
 import { el, api, brl } from '/js/util.js'
+import { gerarPdfOrcamento, baixarPdf } from '/js/pdf-orcamento.js'
 import { condicao, dataBr, dataHoraBr, num, textoCaixa, seloSituacao } from './comum.js'
 
 // Controle de quantidade: botão Adicionar, depois − [qtd] + andando de "passo" em "passo" (caixa ou mínimo).
@@ -174,6 +175,15 @@ export async function telaOrcamento(id, params = {}) {
     o.transportadora_texto ? el('p', {}, el('strong', {}, 'Transportadora: '), o.transportadora_texto) : '',
     o.observacao_cliente ? el('p', {}, el('strong', {}, 'Observação: '), o.observacao_cliente) : '',
     el('div', { class: 'botoes', style: 'justify-content:flex-start' },
+      el('button', { type: 'button', class: 'secundario', onclick: async (e) => {
+        const b = e.target; b.disabled = true; const txt = b.textContent; b.textContent = 'Gerando PDF...'
+        try {
+          const blob = await gerarPdfOrcamento({ orcamento: o, itens, cliente: r.dados.cliente, comprador: r.dados.comprador, verPrecos: ver,
+            urlFoto: (fid) => '/api/portal/foto/' + fid, urlLogoIndustria: o.tem_logo ? '/api/portal/logo/' + o.industria_id : null })
+          baixarPdf(blob, `Orcamento-${o.id}.pdf`)
+        } catch (err) { alert('Não foi possível gerar o PDF: ' + (err.message || err)) }
+        b.disabled = false; b.textContent = txt
+      } }, 'Baixar PDF'),
       o.edicao_liberada ? el('button', { type: 'button', onclick: async (e) => {
         e.target.disabled = true
         const c = await api(`/portal/orcamentos/${o.id}/reabrir`, { metodo: 'POST', corpo: {} })

@@ -1,5 +1,6 @@
 // Tela da equipe: orçamentos enviados pelos clientes (lista, detalhe e mudança de situação).
 import { el, api, brl, pode } from './util.js'
+import { gerarPdfOrcamento, baixarPdf } from './pdf-orcamento.js'
 
 const STATUS = ['Novo', 'Em atendimento', 'Pedido gerado', 'Cancelado']
 const dh = (ms) => (ms ? new Date(ms).toLocaleString('pt-BR', { timeZone: 'America/Cuiaba', dateStyle: 'short', timeStyle: 'short' }) : '')
@@ -97,6 +98,15 @@ export function telaOrcamentos(usuario) {
       if (!x.ok) return msg.replaceChildren(el('div', { class: 'erro' }, x.dados.erro || 'Erro ao salvar.'))
       dialogo.close(); carregar()
     } }, 'Salvar situação')
+    const botaoPdf = el('button', { type: 'button', class: 'secundario', onclick: async (e) => {
+      const b = e.target; b.disabled = true; const txt = b.textContent; b.textContent = 'Gerando PDF...'
+      try {
+        const blob = await gerarPdfOrcamento({ orcamento: o, itens, cliente: o, comprador: { nome: o.comprador, email: o.comprador_email }, verPrecos: !!o.ver_precos,
+          urlFoto: (fid) => '/api/orcamentos/foto/' + fid, urlLogoIndustria: '/api/orcamentos/logo/' + o.industria_id })
+        baixarPdf(blob, `Orcamento-${o.id}.pdf`)
+      } catch (err) { alert('Não foi possível gerar o PDF: ' + (err.message || err)) }
+      b.disabled = false; b.textContent = txt
+    } }, 'Baixar PDF')
     const verHistorico = el('button', { type: 'button', class: 'secundario', onclick: () => historico(id) }, 'Ver histórico')
     const par = (r1, v) => (v ? el('div', {}, el('span', { class: 'mudo' }, r1 + ': '), String(v)) : '')
     dialogo.append(
@@ -116,7 +126,7 @@ export function telaOrcamentos(usuario) {
       editavel ? el('div', { class: 'botoes', style: 'justify-content:flex-start' }, salvarItens, liberar) : '',
       podeAtender ? el('div', { class: 'campo' }, el('label', {}, 'Situação'), sel) : el('p', {}, 'Situação: ', selo(o.status)),
       msg,
-      el('div', { class: 'botoes' }, pode(usuario, 'orcamentos.historico') ? verHistorico : '', el('button', { type: 'button', class: 'secundario', onclick: () => dialogo.close() }, 'Fechar'), podeAtender ? salvar : ''))
+      el('div', { class: 'botoes' }, botaoPdf, pode(usuario, 'orcamentos.historico') ? verHistorico : '', el('button', { type: 'button', class: 'secundario', onclick: () => dialogo.close() }, 'Fechar'), podeAtender ? salvar : ''))
     document.body.append(dialogo)
     dialogo.showModal()
   }

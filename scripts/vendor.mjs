@@ -11,3 +11,14 @@ await build({
   logLevel: 'error'
 })
 console.log('public/js/vendor/excel.js gerado')
+
+await build({
+  entryPoints: ['web/pdf.js'],
+  bundle: true,
+  format: 'esm',
+  minify: true,
+  target: 'es2020',
+  outfile: 'public/js/vendor/pdf.js',
+  logLevel: 'error'
+})
+console.log('public/js/vendor/pdf.js gerado')
