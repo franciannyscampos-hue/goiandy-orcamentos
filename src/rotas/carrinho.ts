@@ -196,6 +196,14 @@ rotasCarrinho.post('/carrinho/:tabelaId/enviar', exigirComprador(), async (c) =>
   for (let i = 0; i < comandos.length; i += 100) await c.env.DB.batch(comandos.slice(i, i + 100))
   await c.env.DB.prepare('INSERT INTO auditoria (quando, usuario_id, acao, detalhe) VALUES (?, ?, ?, ?)').bind(agora, null, 'orcamento.enviar', `orçamento ${cartId} do comprador ${eu.email}`).run()
   await registrarHistorico(c, cartId, atorDe(eu), jaEnviado ? 'reenviado' : 'enviado', jaEnviado ? 'Cliente reenviou o orçamento após editar' : 'Cliente enviou o orçamento', await fotografar(c, cartId))
+  // Rede de segurança: se o navegador não mandar o PDF em ~20 s (aba fechada, erro), o e-mail sai mesmo assim, sem anexo
+  const ator = atorDe(eu)
+  c.executionCtx.waitUntil((async () => {
+    await new Promise((r) => setTimeout(r, 20000))
+    const ult = await c.env.DB.prepare("SELECT MAX(id) AS m FROM orcamento_historico WHERE orcamento_id = ? AND acao IN ('enviado','reenviado')").bind(cartId).first<{ m: number | null }>()
+    const ja = await c.env.DB.prepare("SELECT 1 AS x FROM orcamento_historico WHERE orcamento_id = ? AND acao = 'email' AND id > ?").bind(cartId, ult?.m ?? 0).first()
+    if (!ja) await enviarEmailsOrcamento(c.env, cartId, null, ator, jaEnviado)
+  })().catch(() => {}))
   return c.json({ ok: true, numero: cartId })
 })
 
