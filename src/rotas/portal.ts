@@ -3,6 +3,9 @@ import type { Bindings, Variaveis } from '../types'
 import { conferirSenha, gerarHashSenha } from '../auth/crypto'
 import { criarSessaoComprador, encerrarSessaoComprador, exigirComprador, lerCompradorDaSessao } from '../auth/sessao'
 import { hojeCuiaba } from '../util/numeros'
+import { passoQtd } from '../util/calculo'
+import { ITEM_VISIVEL, tabelaLiberada } from './portal-comum'
+import { rotasCarrinho } from './carrinho'
 
 // Portal do cliente. Toda rota daqui confere, no servidor, o que o CNPJ da sessão pode ver.
 export const rotasPortal = new Hono<{ Bindings: Bindings; Variables: Variaveis }>()
@@ -13,6 +16,9 @@ const MENSAGEM_ERRO = 'E-mail ou senha incorretos.'
 const SAL_FALSO = btoa('\0'.repeat(16))
 const HASH_FALSO = btoa('\0'.repeat(32))
 const POR_PAGINA = 40
+
+// Carrinho e orçamentos do cliente
+rotasPortal.route('/', rotasCarrinho)
 
 rotasPortal.post('/login', async (c) => {
   const corpo = await c.req.json<{ email?: string; senha?: string }>().catch(() => ({}) as { email?: string; senha?: string })
@@ -154,19 +160,6 @@ rotasPortal.get('/busca', exigirComprador(), async (c) => {
   return c.json({ itens: r.results })
 })
 
-// Confere se a tabela está liberada para o CNPJ e devolve dados da tabela e da indústria
-async function tabelaLiberada(c: { env: Bindings }, clienteId: number, tabelaId: number) {
-  if (!Number.isInteger(tabelaId) || tabelaId <= 0) return null
-  return c.env.DB.prepare(
-    `SELECT t.id, t.nome, t.tipo, t.prazo, t.vencimento, i.id AS industria_id, i.nome AS industria, i.calcular_ipi
-       FROM liberacoes l JOIN tabelas_preco t ON t.id = l.tabela_id AND t.ativo = 1 JOIN industrias i ON i.id = t.industria_id AND i.ativo = 1
-      WHERE l.cliente_id = ? AND l.tabela_id = ?`
-  ).bind(clienteId, tabelaId).first<{ id: number; nome: string; tipo: string; prazo: string; vencimento: string; industria_id: number; industria: string; calcular_ipi: number }>()
-}
-
-// Só aparece item ativo que tenha preço ou promoção na tabela
-const ITEM_VISIVEL = `it.ativo = 1 AND ((p.preco IS NOT NULL AND p.preco > 0) OR (p.preco_promocional IS NOT NULL AND p.preco_promocional > 0))`
-
 rotasPortal.get('/tabelas/:id/categorias', exigirComprador(), async (c) => {
   const eu = c.get('comprador')
   const t = await tabelaLiberada(c, eu.cliente_id, Number(c.req.param('id')))
@@ -179,7 +172,8 @@ function montarItem(l: Record<string, unknown>, verPrecos: boolean, calcularIpi:
   const item: Record<string, unknown> = {
     id: l.id, referencia: l.referencia, descricao: l.descricao, categoria: l.categoria, marca: l.marca, medida: l.medida, cor: l.cor,
     qtd_caixa: l.qtd_caixa, qtd_minima: l.qtd_minima, nao_abre_caixa: !!l.nao_abre_caixa, novo: !!l.novo, observacao: l.observacao,
-    promocao: !!(l.preco_promocional as number | null) && (l.preco_promocional as number) > 0, n_fotos: l.n_fotos, foto_id: l.foto_id
+    promocao: !!(l.preco_promocional as number | null) && (l.preco_promocional as number) > 0, n_fotos: l.n_fotos, foto_id: l.foto_id,
+    passo: passoQtd({ qtd_caixa: Number(l.qtd_caixa), qtd_minima: Number(l.qtd_minima), nao_abre_caixa: !!l.nao_abre_caixa }), qtd_carrinho: l.qtd_carrinho ?? 0
   }
   if (verPrecos) {
     const promo = item.promocao as boolean
@@ -193,7 +187,8 @@ function montarItem(l: Record<string, unknown>, verPrecos: boolean, calcularIpi:
 const CAMPOS_ITEM = `it.id, it.referencia, it.descricao, it.categoria, it.marca, it.medida, it.cor, it.qtd_caixa, it.qtd_minima, it.nao_abre_caixa,
        p.preco, p.preco_promocional, p.ipi, p.novo, p.observacao,
        (SELECT COUNT(*) FROM fotos f WHERE f.item_id = it.id) AS n_fotos,
-       (SELECT f.id FROM fotos f WHERE f.item_id = it.id ORDER BY f.posicao LIMIT 1) AS foto_id`
+       (SELECT f.id FROM fotos f WHERE f.item_id = it.id ORDER BY f.posicao LIMIT 1) AS foto_id,
+       (SELECT oi.qtd FROM orcamento_itens oi WHERE oi.orcamento_id = ? AND oi.item_id = it.id) AS qtd_carrinho`
 
 rotasPortal.get('/tabelas/:id/itens', exigirComprador(), async (c) => {
   const eu = c.get('comprador')
@@ -212,9 +207,11 @@ rotasPortal.get('/tabelas/:id/itens', exigirComprador(), async (c) => {
   if (c.req.query('novos') === '1') filtros.push('p.novo = 1')
   if (c.req.query('promocao') === '1') filtros.push('p.preco_promocional IS NOT NULL AND p.preco_promocional > 0')
   const onde = filtros.join(' AND ')
+  const cart = await c.env.DB.prepare("SELECT id FROM orcamentos WHERE comprador_id = ? AND tabela_id = ? AND status = 'carrinho'").bind(eu.id, t.id).first<{ id: number }>()
+  const cartId = cart?.id ?? 0
   const total = await c.env.DB.prepare(`SELECT COUNT(*) AS n FROM precos p JOIN itens it ON it.id = p.item_id WHERE ${onde}`).bind(...args).first<{ n: number }>()
   const r = await c.env.DB.prepare(`SELECT ${CAMPOS_ITEM} FROM precos p JOIN itens it ON it.id = p.item_id WHERE ${onde} ORDER BY p.novo DESC, it.referencia COLLATE NOCASE LIMIT ? OFFSET ?`)
-    .bind(...args, POR_PAGINA, (pagina - 1) * POR_PAGINA).all<Record<string, unknown>>()
+    .bind(cartId, ...args, POR_PAGINA, (pagina - 1) * POR_PAGINA).all<Record<string, unknown>>()
   return c.json({
     tabela: { id: t.id, nome: t.nome, tipo: t.tipo, prazo: t.prazo, vencimento: t.vencimento, industria: t.industria },
     itens: r.results.map((l) => montarItem(l, eu.ver_precos, !!t.calcular_ipi)),
@@ -226,7 +223,8 @@ rotasPortal.get('/tabelas/:id/itens/:itemId', exigirComprador(), async (c) => {
   const eu = c.get('comprador')
   const t = await tabelaLiberada(c, eu.cliente_id, Number(c.req.param('id')))
   if (!t) return c.json({ erro: 'Tabela não encontrada.' }, 404)
-  const l = await c.env.DB.prepare(`SELECT ${CAMPOS_ITEM} FROM precos p JOIN itens it ON it.id = p.item_id WHERE p.tabela_id = ? AND it.id = ? AND ${ITEM_VISIVEL}`).bind(t.id, Number(c.req.param('itemId'))).first<Record<string, unknown>>()
+  const cart = await c.env.DB.prepare("SELECT id FROM orcamentos WHERE comprador_id = ? AND tabela_id = ? AND status = 'carrinho'").bind(eu.id, t.id).first<{ id: number }>()
+  const l = await c.env.DB.prepare(`SELECT ${CAMPOS_ITEM} FROM precos p JOIN itens it ON it.id = p.item_id WHERE p.tabela_id = ? AND it.id = ? AND ${ITEM_VISIVEL}`).bind(cart?.id ?? 0, t.id, Number(c.req.param('itemId'))).first<Record<string, unknown>>()
   if (!l) return c.json({ erro: 'Item não encontrado.' }, 404)
   const fotos = await c.env.DB.prepare('SELECT id, posicao FROM fotos WHERE item_id = ? ORDER BY posicao').bind(l.id).all()
   return c.json({ item: montarItem(l, eu.ver_precos, !!t.calcular_ipi), fotos: fotos.results })

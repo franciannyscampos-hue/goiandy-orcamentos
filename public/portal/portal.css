@@ -125,3 +125,30 @@ body.portal { background: #f6f7f9; }
 .p-logo-cond strong { color: var(--destaque); font-size: 1rem; font-weight: 800; }
 .p-logo-cond span { font-weight: 600; }
 .p-logo-mais { font-size: .78rem; color: var(--mudo); }
+
+/* ---- carrinho e orçamentos ---- */
+.p-nav { display: flex; gap: 16px; align-items: center; }
+.p-nav a { color: var(--destaque); text-decoration: none; font-weight: 600; white-space: nowrap; }
+.p-badge { display: inline-block; margin-left: 6px; min-width: 20px; padding: 1px 6px; border-radius: 999px; background: var(--laranja); color: #fff; font-size: .75rem; text-align: center; }
+.qtd-area { margin-top: 8px; }
+.qtd { display: flex; align-items: center; gap: 6px; }
+.qtd-add { width: 100%; padding: 8px 10px; background: var(--laranja); border: 0; color: #fff; border-radius: 8px; font-weight: 700; cursor: pointer; }
+.qtd-btn { width: 36px; height: 36px; border-radius: 8px; border: 1px solid var(--laranja); background: #fff; color: var(--destaque); font-size: 1.2rem; font-weight: 700; cursor: pointer; }
+.qtd input { width: 70px; text-align: center; padding: 8px 4px; font-size: 1rem; }
+.qtd-msg { color: #b42318; font-size: .8rem; margin-top: 4px; }
+.p-card { cursor: pointer; }
+.cart-linha { display: grid; grid-template-columns: 64px 1fr auto auto; gap: 14px; align-items: center; padding: 12px; border-bottom: 1px solid #e5e7eb; background: #fff; }
+.cart-linha.indisp { background: #fff5f5; }
+.cart-lista { border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden; margin: 14px 0; }
+.cart-foto { width: 64px; height: 64px; object-fit: contain; border-radius: 8px; background: #f3f4f6; }
+.cart-valores { text-align: right; min-width: 110px; }
+.cart-total { margin-top: 16px; }
+.cart-resumo > div { display: flex; justify-content: space-between; padding: 4px 0; }
+.cart-final { font-size: 1.25rem; border-top: 2px solid var(--destaque); margin-top: 6px; padding-top: 8px !important; }
+.cart-ind { display: flex; align-items: center; gap: 10px; }
+.cart-ind img { height: 40px; max-width: 110px; object-fit: contain; }
+.selo-st { padding: 2px 10px; border-radius: 999px; font-size: .8rem; background: #eef0f2; }
+.st-novo { background: #fff0d9; color: #8a4b00; } .st-atend { background: #dbeafe; color: #1e3a8a; } .st-ok { background: #dcfce7; color: #166534; } .st-cancel { background: #fee2e2; color: #991b1b; }
+.clicavel { cursor: pointer; }
+@media (max-width: 640px) { .cart-linha { grid-template-columns: 56px 1fr; } .cart-linha .qtd-area, .cart-linha .cart-valores { grid-column: 1 / -1; text-align: left; } }
+.p-badge[hidden] { display: none; }

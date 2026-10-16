@@ -6,6 +6,7 @@ import { telaClientes } from './clientes.js'
 import { telaEquipe } from './equipe.js'
 import { telaTabelasPreco } from './tabelas-preco.js'
 import { telaItens } from './itens.js'
+import { telaOrcamentos } from './orcamentos.js'
 
 const raiz = document.getElementById('app')
 
@@ -86,6 +87,7 @@ function painel(usuario) {
   const itensMenu = [{ id: 'inicio', rotulo: 'Início' }]
   if (pode(usuario, 'clientes.ver')) itensMenu.push({ id: 'clientes', rotulo: 'Clientes' })
   for (const [id, t] of Object.entries(telas)) if (pode(usuario, t.permVer)) itensMenu.push({ id, rotulo: t.titulo })
+  if (pode(usuario, 'orcamentos.ver_todos') || pode(usuario, 'orcamentos.ver_proprios')) itensMenu.push({ id: 'orcamentos', rotulo: 'Orçamentos' })
   if (pode(usuario, 'tabelas.ver')) itensMenu.push({ id: 'tabelas', rotulo: 'Tabelas de preço' })
   if (pode(usuario, 'itens.ver')) itensMenu.push({ id: 'itens', rotulo: 'Itens e fotos' })
   if (pode(usuario, 'equipe.gerenciar')) itensMenu.push({ id: 'equipe', rotulo: 'Equipe' })
@@ -102,7 +104,7 @@ function painel(usuario) {
     const id = window.location.hash.replace('#/', '') || 'inicio'
     const valido = itensMenu.some((i) => i.id === id) ? id : 'inicio'
     for (const a of menu.querySelectorAll('a')) a.classList.toggle('ativo', a.dataset.id === valido)
-    conteudo.replaceChildren(valido === 'inicio' ? telaInicio(usuario) : valido === 'clientes' ? telaClientes(usuario) : valido === 'equipe' ? telaEquipe(usuario) : valido === 'tabelas' ? telaTabelasPreco(usuario) : valido === 'itens' ? telaItens(usuario) : telaCadastro(telas[valido], usuario))
+    conteudo.replaceChildren(valido === 'inicio' ? telaInicio(usuario) : valido === 'clientes' ? telaClientes(usuario) : valido === 'equipe' ? telaEquipe(usuario) : valido === 'tabelas' ? telaTabelasPreco(usuario) : valido === 'itens' ? telaItens(usuario) : valido === 'orcamentos' ? telaOrcamentos(usuario) : telaCadastro(telas[valido], usuario))
   }
 
   window.onhashchange = rotear

@@ -1,13 +1,9 @@
 // Portal do cliente: login do comprador, indústrias liberadas e catálogo (com preços só se o cliente puder ver).
 import { el, api, brl } from '/js/util.js'
+import { dataBr, num, prazoTxt, condicao, textoCaixa, blocoPreco } from './comum.js'
+import { controleQtd, telaCarrinhos, telaCarrinho, telaOrcamentos, telaOrcamento } from './carrinho.js'
 
 const raiz = document.getElementById('app')
-const dataBr = (iso) => (iso ? iso.split('-').reverse().join('/') : '')
-const num = (n) => String(n).replace('.', ',')
-const prazoTxt = (t) => (t.tipo === 'vista' ? 'À vista' : 'A prazo' + (t.prazo ? ' ' + t.prazo : ''))
-// Condição de pagamento em destaque: "À vista" ou "30/45/55 dias"
-const condicao = (t) => (t.tipo === 'vista' ? 'À vista' : t.prazo ? (/^[\d\s\/.,+-]+$/.test(t.prazo) ? t.prazo.trim() + ' dias' : t.prazo) : 'A prazo')
-
 function campo(rotulo, id, tipo, extra = {}) {
   return [el('label', { for: id }, rotulo), el('input', { id, name: id, type: tipo, required: true, ...extra })]
 }
@@ -63,25 +59,6 @@ function telaTrocarSenha() {
   form.atual.focus()
 }
 
-function textoCaixa(i) {
-  const partes = []
-  if (i.nao_abre_caixa && i.qtd_caixa) partes.push(`Só caixa fechada (${i.qtd_caixa} un.)`)
-  else {
-    if (i.qtd_minima) partes.push(`Mín. ${i.qtd_minima} un.`)
-    if (i.qtd_caixa) partes.push(`caixa com ${i.qtd_caixa}`)
-  }
-  return partes.join(' · ')
-}
-
-function blocoPreco(i, verPrecos) {
-  if (!verPrecos) return el('div', { class: 'p-vitrine' }, 'Consulte os valores com seu vendedor')
-  const p = el('div', { class: 'p-preco' }, brl(i.preco))
-  if (i.preco_original) p.append(el('small', {}, brl(i.preco_original)))
-  if (i.ipi > 0) p.append(el('span', { class: 'ipi' }, `+ IPI ${num(i.ipi)}%`))
-  if (i.promocao) p.append(el('span', { class: 'ipi' }, 'Promoção · sem desconto adicional'))
-  return p
-}
-
 function parseHash() {
   const h = window.location.hash.replace(/^#/, '')
   const [caminho, consulta = ''] = h.split('?')
@@ -130,11 +107,22 @@ function painel(eu) {
   })
   campoBuscaGlobal.addEventListener('blur', () => setTimeout(fecharSugestoes, 120))
 
+  const selo = el('span', { class: 'p-badge', hidden: true })
+  const linkCarrinho = el('a', { href: '#/carrinho', class: 'p-carrinho' }, 'Meu carrinho', selo)
+  async function atualizarSelo() {
+    const r = await api('/portal/carrinhos')
+    const n = r.ok ? r.dados.carrinhos.reduce((a, c) => a + (c.n_linhas || 0), 0) : 0
+    selo.textContent = String(n)
+    selo.hidden = !n
+  }
+  atualizarSelo()
+
   raiz.className = ''
   raiz.replaceChildren(
     el('header', { class: 'p-topo' },
       el('a', { class: 'marca', href: '#/' }, el('img', { src: '/portal/logo-goiandy.png', alt: 'Goiandy Representações' }), el('span', {}, 'Goiandy Representações')),
       el('div', { class: 'p-busca' }, campoBuscaGlobal, sugestoes),
+      el('nav', { class: 'p-nav' }, el('a', { href: '#/orcamentos' }, 'Meus orçamentos'), linkCarrinho),
       el('div', { class: 'quem' }, el('span', {}, `${eu.cliente_nome} · ${eu.nome}`), sair)),
     conteudo)
 
@@ -154,6 +142,10 @@ function painel(eu) {
       const cat = await carregarCatalogo()
       if (h.rota === 't' && h.id) conteudo.replaceChildren(telaTabela(cat, h.id, h.params))
       else if (h.rota === 'i' && h.id) conteudo.replaceChildren(telaIndustria(cat, h.id))
+      else if (h.rota === 'carrinho' && h.id) conteudo.replaceChildren(await telaCarrinho(h.id, atualizarSelo))
+      else if (h.rota === 'carrinho') { conteudo.replaceChildren(await telaCarrinhos()); atualizarSelo() }
+      else if (h.rota === 'orcamentos' && h.id) { conteudo.replaceChildren(await telaOrcamento(h.id, h.params)); atualizarSelo() }
+      else if (h.rota === 'orcamentos') conteudo.replaceChildren(await telaOrcamentos())
       else if (h.rota === 'buscar') conteudo.replaceChildren(await telaBusca(h.params.q || ''))
       else conteudo.replaceChildren(telaInicio(cat))
     } catch (e) {
@@ -283,9 +275,10 @@ function painel(eu) {
       const selos = el('div', { class: 'p-selos' })
       if (i.novo) selos.append(el('span', { class: 'selo selo-ok' }, 'Novo'))
       if (i.promocao) selos.append(el('span', { class: 'selo selo-promo' }, 'Promoção'))
-      return el('button', { type: 'button', class: 'p-card', onclick: () => detalhe(i.id) },
+      const qtd = controleQtd({ tabelaId: id, itemId: i.id, passo: i.passo || 1, qtd: i.qtd_carrinho || 0, aoMudar: atualizarSelo })
+      return el('div', { class: 'p-card', role: 'button', tabindex: '0', onclick: () => detalhe(i.id), onkeydown: (e) => { if (e.key === 'Enter' && e.target === e.currentTarget) detalhe(i.id) } },
         el('div', { class: 'p-foto' }, i.foto_id ? el('img', { src: '/api/portal/foto/' + i.foto_id, loading: 'lazy', alt: i.descricao }) : el('span', { class: 'sem' }, 'sem foto'), selos),
-        el('div', { class: 'p-corpo' }, el('div', { class: 'p-ref' }, i.referencia), el('div', { class: 'p-desc' }, i.descricao), blocoPreco(i, cat.ver_precos), el('div', { class: 'p-caixa' }, textoCaixa(i))))
+        el('div', { class: 'p-corpo' }, el('div', { class: 'p-ref' }, i.referencia), el('div', { class: 'p-desc' }, i.descricao), blocoPreco(i, cat.ver_precos), el('div', { class: 'p-caixa' }, textoCaixa(i)), qtd))
     }
 
     async function detalhe(itemId) {
@@ -311,6 +304,7 @@ function painel(eu) {
             el('h3', { style: 'margin-top:6px' }, i.descricao),
             blocoPreco(i, cat.ver_precos),
             el('div', { class: 'p-lista' }, linha('Categoria', i.categoria), linha('Marca', i.marca), linha('Medida', i.medida), linha('Cor', i.cor), linha('Embalagem', textoCaixa(i)), linha('Observação', i.observacao)),
+            controleQtd({ tabelaId: id, itemId: i.id, passo: i.passo || 1, qtd: i.qtd_carrinho || 0, aoMudar: () => { atualizarSelo(); carregar() } }),
             i.nao_abre_caixa ? el('p', { class: 'mudo pequeno' }, 'Este item não abre caixa: o pedido é feito em múltiplos da caixa fechada.') : '')),
         el('div', { class: 'botoes' }, el('button', { type: 'button', class: 'secundario', onclick: () => dialogo.close() }, 'Fechar')))
       document.body.append(dialogo)

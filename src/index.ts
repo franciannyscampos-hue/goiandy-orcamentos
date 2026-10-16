@@ -9,6 +9,7 @@ import { rotasItens } from './rotas/itens'
 import { rotasLiberacoes } from './rotas/liberacoes'
 import { rotasPortal } from './rotas/portal'
 import { rotasMarca } from './rotas/marca'
+import { rotasOrcamentos } from './rotas/orcamentos'
 import { rotasIndustrias, rotasTransportadoras, rotasVendedores } from './rotas/cadastros'
 
 const app = new Hono<{ Bindings: Bindings; Variables: Variaveis }>()
@@ -51,6 +52,7 @@ app.route('/api/itens', rotasItens)
 app.route('/api/liberacoes', rotasLiberacoes)
 app.route('/api/portal', rotasPortal)
 app.route('/api/marca', rotasMarca)
+app.route('/api/orcamentos', rotasOrcamentos)
 app.route('/api/industrias', rotasIndustrias)
 
 app.onError((erro, c) => {

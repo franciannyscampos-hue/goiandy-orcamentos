@@ -229,5 +229,53 @@ export const migracoes: Migracao[] = [
        END`,
       `INSERT INTO itens_busca(itens_busca) VALUES ('rebuild')`
     ]
+  },
+  {
+    id: '007_orcamentos',
+    comandos: [
+      // Carrinho (status 'carrinho') e orçamentos enviados. O número do orçamento é o próprio id.
+      `CREATE TABLE IF NOT EXISTS orcamentos (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        cliente_id INTEGER NOT NULL REFERENCES clientes(id),
+        comprador_id INTEGER REFERENCES compradores(id),
+        industria_id INTEGER NOT NULL REFERENCES industrias(id),
+        tabela_id INTEGER NOT NULL REFERENCES tabelas_preco(id),
+        status TEXT NOT NULL DEFAULT 'carrinho' CHECK (status IN ('carrinho','Novo','Em atendimento','Pedido gerado','Cancelado')),
+        tabela_nome TEXT NOT NULL DEFAULT '',
+        tabela_tipo TEXT NOT NULL DEFAULT '',
+        tabela_prazo TEXT NOT NULL DEFAULT '',
+        tipo_frete TEXT NOT NULL DEFAULT '',
+        calcular_ipi INTEGER NOT NULL DEFAULT 0,
+        ver_precos INTEGER NOT NULL DEFAULT 1,
+        transportadora_texto TEXT NOT NULL DEFAULT '',
+        observacao_cliente TEXT NOT NULL DEFAULT '',
+        subtotal REAL NOT NULL DEFAULT 0,
+        ipi_total REAL NOT NULL DEFAULT 0,
+        total REAL NOT NULL DEFAULT 0,
+        qtd_total INTEGER NOT NULL DEFAULT 0,
+        pdf_chave TEXT NOT NULL DEFAULT '',
+        criado_em INTEGER NOT NULL,
+        atualizado_em INTEGER NOT NULL,
+        enviado_em INTEGER NOT NULL DEFAULT 0
+      )`,
+      `CREATE UNIQUE INDEX IF NOT EXISTS idx_orc_carrinho ON orcamentos(comprador_id, tabela_id) WHERE status = 'carrinho'`,
+      `CREATE INDEX IF NOT EXISTS idx_orc_cliente ON orcamentos(cliente_id, status)`,
+      `CREATE INDEX IF NOT EXISTS idx_orc_status ON orcamentos(status, enviado_em)`,
+      `CREATE TABLE IF NOT EXISTS orcamento_itens (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        orcamento_id INTEGER NOT NULL REFERENCES orcamentos(id),
+        item_id INTEGER NOT NULL REFERENCES itens(id),
+        qtd INTEGER NOT NULL CHECK (qtd > 0),
+        referencia TEXT NOT NULL DEFAULT '',
+        descricao TEXT NOT NULL DEFAULT '',
+        codigo_barras TEXT NOT NULL DEFAULT '',
+        ncm TEXT NOT NULL DEFAULT '',
+        preco_unit REAL,
+        ipi REAL NOT NULL DEFAULT 0,
+        promocao INTEGER NOT NULL DEFAULT 0,
+        total_linha REAL NOT NULL DEFAULT 0,
+        UNIQUE (orcamento_id, item_id)
+      )`
+    ]
   }
 ]
