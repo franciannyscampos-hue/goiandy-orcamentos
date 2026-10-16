@@ -68,3 +68,18 @@ button.link:hover { background: none; text-decoration: underline; }
   .barra-acoes { width: 100%; }
   .barra-acoes input { flex: 1; width: auto; }
 }
+
+.pequeno { font-size: .82rem; }
+.janela.larga { width: min(760px, calc(100vw - 32px)); }
+.janela h4 { margin: 20px 0 4px; font-size: .95rem; color: var(--mudo); }
+.grade-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 14px; }
+.caixas { display: grid; gap: 8px; margin-top: 16px; }
+.campo-check-linha { display: flex; align-items: center; gap: 8px; margin: 0; font-weight: 400; }
+.campo-check-linha input { width: auto; }
+.ok { margin-top: 14px; padding: 10px 12px; border-radius: 8px; background: #ecfdf3; color: #067647; font-size: .92rem; }
+.compradores { border-top: 1px solid var(--borda); margin-top: 22px; padding-top: 4px; }
+.linha-comprador { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--borda); }
+.linha-comprador.inativo { color: var(--mudo); }
+.sub-form { background: var(--fundo); border-radius: 10px; padding: 4px 14px 14px; margin-top: 8px; }
+.compradores > button { margin-top: 12px; }
+@media (max-width: 640px) { .grade-2 { grid-template-columns: 1fr; } }

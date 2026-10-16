@@ -16,7 +16,7 @@ export type Campo = {
 type Resultado = { valores: Record<string, string | number>; erros: string[] }
 
 // Confere e limpa o que veio do navegador. Só passam os campos declarados na configuração.
-function limpar(corpo: Record<string, unknown>, campos: Campo[], parcial: boolean): Resultado {
+export function limpar(corpo: Record<string, unknown>, campos: Campo[], parcial: boolean): Resultado {
   const valores: Record<string, string | number> = {}
   const erros: string[] = []
   for (const c of campos) {
