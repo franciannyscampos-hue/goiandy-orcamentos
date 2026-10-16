@@ -197,7 +197,8 @@ function painel(eu) {
   function cartaoIndustria(i) {
     return el('button', { type: 'button', class: 'p-logo-card', onclick: () => irIndustria(i) },
       el('div', { class: 'p-logo-img' }, i.tem_logo ? el('img', { src: '/api/portal/logo/' + i.id, alt: i.nome, loading: 'lazy' }) : el('span', { class: 'p-logo-texto' }, i.nome)),
-      el('div', { class: 'p-logo-nome' }, i.nome))
+      el('div', { class: 'p-logo-nome' }, i.nome),
+      el('div', { class: 'p-logo-conds' }, ...i.tabelas.slice(0, 3).map((t) => el('div', { class: 'p-logo-cond' }, el('span', {}, t.tipo === 'vista' ? 'À vista' : 'A prazo'), t.tipo === 'vista' ? '' : el('strong', {}, condicao(t)))), i.tabelas.length > 3 ? el('div', { class: 'p-logo-mais' }, `+ ${i.tabelas.length - 3} tabelas`) : ''))
   }
 
   function telaInicio(cat) {

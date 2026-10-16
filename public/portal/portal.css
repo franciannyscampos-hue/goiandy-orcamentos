@@ -119,3 +119,9 @@ body.portal { background: #f6f7f9; }
 .p-sug-todos { color: var(--destaque); }
 @media (max-width: 640px) { .p-topo .marca span { display: none; } }
 .p-topo { border-bottom: 3px solid var(--laranja); }
+
+.p-logo-conds { display: grid; gap: 4px; border-top: 1px solid var(--borda); padding-top: 8px; }
+.p-logo-cond { font-size: .85rem; color: var(--mudo); display: flex; gap: 6px; justify-content: center; align-items: baseline; flex-wrap: wrap; }
+.p-logo-cond strong { color: var(--destaque); font-size: 1rem; font-weight: 800; }
+.p-logo-cond span { font-weight: 600; }
+.p-logo-mais { font-size: .78rem; color: var(--mudo); }
