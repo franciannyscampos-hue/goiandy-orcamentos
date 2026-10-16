@@ -5,6 +5,13 @@ export type Bindings = {
   ADMIN_EMAIL?: string
   ADMIN_SENHA?: string
   ADMIN_REDEFINIR_SENHA?: string
+  GOOGLE_CLIENT_ID?: string
+  GOOGLE_CLIENT_SECRET?: string
+  GOOGLE_REFRESH_TOKEN?: string
+  EMAIL_REMETENTE?: string
+  EMAIL_EQUIPE?: string
+  GOOGLE_TOKEN_URL?: string
+  GMAIL_API_URL?: string
 }
 
 export type UsuarioSessao = {

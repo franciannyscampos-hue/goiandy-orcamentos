@@ -107,6 +107,17 @@ export function telaOrcamentos(usuario) {
       } catch (err) { alert('Não foi possível gerar o PDF: ' + (err.message || err)) }
       b.disabled = false; b.textContent = txt
     } }, 'Baixar PDF')
+    const botaoEmail = el('button', { type: 'button', class: 'secundario', onclick: async (e) => {
+      const b = e.target; b.disabled = true; const txt = b.textContent; b.textContent = 'Enviando...'
+      try {
+        const blob = await gerarPdfOrcamento({ orcamento: o, itens, cliente: o, comprador: { nome: o.comprador, email: o.comprador_email }, verPrecos: !!o.ver_precos,
+          urlFoto: (fid) => '/api/orcamentos/foto/' + fid, urlLogoIndustria: '/api/orcamentos/logo/' + o.industria_id })
+        const r = await fetch(`/api/orcamentos/${id}/email`, { method: 'POST', headers: { 'Content-Type': 'application/pdf' }, body: blob, credentials: 'same-origin' })
+        const d = await r.json().catch(() => ({}))
+        alert(r.ok && d.email?.enviado ? 'E-mail enviado (comprador, vendedor e equipe).' : 'E-mail não enviado: ' + (d.email?.erro || d.erro || 'erro desconhecido'))
+      } catch (err) { alert('Não foi possível enviar: ' + (err.message || err)) }
+      b.disabled = false; b.textContent = txt
+    } }, 'Enviar por e-mail')
     const verHistorico = el('button', { type: 'button', class: 'secundario', onclick: () => historico(id) }, 'Ver histórico')
     const par = (r1, v) => (v ? el('div', {}, el('span', { class: 'mudo' }, r1 + ': '), String(v)) : '')
     dialogo.append(
@@ -126,12 +137,12 @@ export function telaOrcamentos(usuario) {
       editavel ? el('div', { class: 'botoes', style: 'justify-content:flex-start' }, salvarItens, liberar) : '',
       podeAtender ? el('div', { class: 'campo' }, el('label', {}, 'Situação'), sel) : el('p', {}, 'Situação: ', selo(o.status)),
       msg,
-      el('div', { class: 'botoes' }, botaoPdf, pode(usuario, 'orcamentos.historico') ? verHistorico : '', el('button', { type: 'button', class: 'secundario', onclick: () => dialogo.close() }, 'Fechar'), podeAtender ? salvar : ''))
+      el('div', { class: 'botoes' }, botaoPdf, podeAtender ? botaoEmail : '', pode(usuario, 'orcamentos.historico') ? verHistorico : '', el('button', { type: 'button', class: 'secundario', onclick: () => dialogo.close() }, 'Fechar'), podeAtender ? salvar : ''))
     document.body.append(dialogo)
     dialogo.showModal()
   }
 
-  const ROTULO = { enviado: 'Orçamento enviado', reenviado: 'Orçamento reenviado', reaberto: 'Reaberto pelo cliente', editado_equipe: 'Itens editados pela equipe', status: 'Situação alterada', edicao_liberada: 'Edição liberada ao cliente', edicao_bloqueada: 'Edição bloqueada' }
+  const ROTULO = { enviado: 'Orçamento enviado', reenviado: 'Orçamento reenviado', reaberto: 'Reaberto pelo cliente', editado_equipe: 'Itens editados pela equipe', status: 'Situação alterada', edicao_liberada: 'Edição liberada ao cliente', edicao_bloqueada: 'Edição bloqueada', email: 'E-mail' }
   async function historico(id) {
     const r = await api(`/orcamentos/${id}/historico`)
     if (!r.ok) return alert(r.dados.erro || 'Não foi possível abrir o histórico.')

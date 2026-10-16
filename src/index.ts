@@ -37,7 +37,8 @@ app.use('/api/*', async (c, next) => {
   if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(c.req.method)) {
     const tipo = c.req.header('content-type') ?? ''
     const envioDeFoto = c.req.method === 'POST' && /^\/api\/(itens\/(fotos-lote|\d+\/fotos\/\d)|marca\/industria\/\d+\/(logo|banners))/.test(c.req.path) && tipo.startsWith('image/')
-    if (!tipo.includes('application/json') && !envioDeFoto) return c.json({ erro: 'Formato de pedido inválido.' }, 415)
+    const envioDePdf = c.req.method === 'POST' && /^\/api\/(portal\/orcamentos\/\d+\/pdf|orcamentos\/\d+\/email)$/.test(c.req.path) && tipo.startsWith('application/pdf')
+    if (!tipo.includes('application/json') && !envioDeFoto && !envioDePdf) return c.json({ erro: 'Formato de pedido inválido.' }, 415)
   }
   await next()
 })

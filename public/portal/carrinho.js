@@ -112,7 +112,9 @@ export async function telaCarrinho(tabelaId, aoAtualizar) {
       const r = await api(`/portal/carrinho/${t.id}/enviar`, { metodo: 'POST', corpo: { transportadora, observacao } })
       if (!r.ok) { enviar.disabled = false; return erroEnvio.replaceChildren(el('div', { class: 'erro', role: 'alert' }, r.dados.erro || 'Não foi possível enviar.')) }
       aoAtualizar?.()
-      window.location.hash = `#/orcamentos/${r.dados.numero}?novo=1`
+      enviar.textContent = 'Enviando e-mail...'
+      const emailOk = await enviarPdfPorEmail(r.dados.numero)
+      window.location.hash = `#/orcamentos/${r.dados.numero}?novo=1${emailOk ? '&email=1' : ''}`
     })
     const esvaziar = el('button', { type: 'button', class: 'secundario', onclick: async () => { if (!confirm('Esvaziar este carrinho?')) return; await api('/portal/carrinho/' + t.id, { metodo: 'DELETE', corpo: {} }); aoAtualizar?.(); window.location.hash = '#/carrinho' } }, 'Esvaziar carrinho')
 
@@ -144,16 +146,29 @@ export async function telaCarrinho(tabelaId, aoAtualizar) {
 }
 
 // Gera e baixa o PDF de um orçamento enviado (o cliente emite o próprio PDF quando quiser)
+async function montarPdf(id) {
+  const r = await api('/portal/orcamentos/' + id)
+  if (!r.ok) throw new Error(r.dados.erro || 'Orçamento não encontrado.')
+  const d = r.dados
+  return gerarPdfOrcamento({ orcamento: d.orcamento, itens: d.itens, cliente: d.cliente, comprador: d.comprador, verPrecos: d.ver_precos,
+    urlFoto: (fid) => '/api/portal/foto/' + fid, urlLogoIndustria: d.orcamento.tem_logo ? '/api/portal/logo/' + d.orcamento.industria_id : null })
+}
+
+// Depois de enviar: gera o PDF e manda para o servidor disparar o e-mail (se falhar, o orçamento já está salvo)
+async function enviarPdfPorEmail(id) {
+  try {
+    const blob = await montarPdf(id)
+    const r = await fetch(`/api/portal/orcamentos/${id}/pdf`, { method: 'POST', headers: { 'Content-Type': 'application/pdf' }, body: blob, credentials: 'same-origin' })
+    const d = await r.json().catch(() => ({}))
+    return !!(r.ok && d.email && d.email.enviado)
+  } catch { return false }
+}
+
 export async function baixarOrcamentoPdf(id, botao) {
   const txt = botao?.textContent
   if (botao) { botao.disabled = true; botao.textContent = 'Gerando PDF...' }
   try {
-    const r = await api('/portal/orcamentos/' + id)
-    if (!r.ok) throw new Error(r.dados.erro || 'Orçamento não encontrado.')
-    const d = r.dados
-    const blob = await gerarPdfOrcamento({ orcamento: d.orcamento, itens: d.itens, cliente: d.cliente, comprador: d.comprador, verPrecos: d.ver_precos,
-      urlFoto: (fid) => '/api/portal/foto/' + fid, urlLogoIndustria: d.orcamento.tem_logo ? '/api/portal/logo/' + d.orcamento.industria_id : null })
-    baixarPdf(blob, `Orcamento-${id}.pdf`)
+    baixarPdf(await montarPdf(id), `Orcamento-${id}.pdf`)
   } catch (err) { alert('Não foi possível gerar o PDF: ' + (err.message || err)) }
   if (botao) { botao.disabled = false; botao.textContent = txt }
 }
@@ -180,7 +195,7 @@ export async function telaOrcamento(id, params = {}) {
   const { orcamento: o, itens, ver_precos: ver } = r.dados
   return el('div', { class: 'p-pagina' },
     el('a', { href: '#/orcamentos' }, '← Meus orçamentos'),
-    params.novo ? el('div', { class: 'ok', style: 'font-size:1.05rem' }, `Orçamento nº ${o.id} enviado! A equipe da Goiandy vai analisar e entrar em contato.`) : '',
+    params.novo ? el('div', { class: 'ok', style: 'font-size:1.05rem' }, `Orçamento nº ${o.id} enviado! A equipe da Goiandy vai analisar e entrar em contato.${params.email ? ' Uma cópia com o PDF foi enviada para o seu e-mail.' : ''}`) : '',
     el('h2', { class: 'p-titulo' }, `Orçamento nº ${o.id} `, seloSituacao(o.status)),
     el('div', { class: 'mudo' }, `${o.industria} · ${o.tabela_nome} · ${condicao({ tipo: o.tabela_tipo, prazo: o.tabela_prazo })} · enviado em ${dataHoraBr(o.enviado_em)}`),
     el('div', { class: 'tabela-caixa' }, el('table', { class: 'tabela' },

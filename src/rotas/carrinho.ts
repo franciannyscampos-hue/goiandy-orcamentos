@@ -4,6 +4,7 @@ import { exigirComprador } from '../auth/sessao'
 import { arredondar2, lerNumero } from '../util/numeros'
 import { calcularLinha, mensagemQtd, passoQtd, precoUnitario, qtdValida } from '../util/calculo'
 import { ITEM_VISIVEL, tabelaLiberada } from './portal-comum'
+import { enviarEmailsOrcamento } from '../util/email-orcamento'
 import { fotografar, registrarHistorico, type Ator } from '../util/historico'
 
 const atorDe = (eu: CompradorSessao): Ator => ({ tipo: 'comprador', id: eu.id, nome: `${eu.nome} (${eu.cliente_nome})` })
@@ -269,4 +270,22 @@ rotasCarrinho.post('/orcamentos/:id/reabrir', exigirComprador(), async (c) => {
   await c.env.DB.prepare('INSERT INTO auditoria (quando, usuario_id, acao, detalhe) VALUES (?, ?, ?, ?)').bind(Date.now(), null, 'orcamento.reabrir', `orçamento ${id} reaberto pelo comprador ${eu.email}`).run()
   await registrarHistorico(c, id, atorDe(eu), 'reaberto', 'Cliente reabriu o orçamento para edição (liberado pela equipe)')
   return c.json({ ok: true, tabela_id: o.tabela_id })
+})
+
+// Depois do envio, o navegador do cliente manda o PDF do orçamento e o servidor dispara o e-mail (uma vez por envio)
+rotasCarrinho.post('/orcamentos/:id/pdf', exigirComprador(), async (c) => {
+  const eu = c.get('comprador')
+  const id = Number(c.req.param('id'))
+  const o = Number.isInteger(id)
+    ? await c.env.DB.prepare("SELECT id FROM orcamentos WHERE id = ? AND comprador_id = ? AND status <> 'carrinho'").bind(id, eu.id).first<{ id: number }>()
+    : null
+  if (!o) return c.json({ erro: 'Orçamento não encontrado.' }, 404)
+  const bytes = new Uint8Array(await c.req.arrayBuffer())
+  if (bytes.length < 100 || bytes.length > 5 * 1024 * 1024 || String.fromCharCode(...bytes.subarray(0, 4)) !== '%PDF') return c.json({ erro: 'PDF inválido.' }, 400)
+  const ult = await c.env.DB.prepare("SELECT MAX(id) AS m FROM orcamento_historico WHERE orcamento_id = ? AND acao IN ('enviado','reenviado')").bind(id).first<{ m: number | null }>()
+  const jaEmail = await c.env.DB.prepare("SELECT 1 AS x FROM orcamento_historico WHERE orcamento_id = ? AND acao = 'email' AND id > ?").bind(id, ult?.m ?? 0).first()
+  if (jaEmail) return c.json({ ok: true, email: { enviado: false, erro: 'E-mail deste envio já foi disparado.' } })
+  const reenvio = (await c.env.DB.prepare("SELECT COUNT(*) AS n FROM orcamento_historico WHERE orcamento_id = ? AND acao = 'reenviado'").bind(id).first<{ n: number }>())?.n ?? 0
+  const r = await enviarEmailsOrcamento(c.env, id, bytes, atorDe(eu), reenvio > 0)
+  return c.json({ ok: true, email: r })
 })

@@ -1,5 +1,6 @@
 import { calcularLinha, passoQtd, precoUnitario } from '../util/calculo'
 import { ITEM_VISIVEL } from './portal-comum'
+import { enviarEmailsOrcamento } from '../util/email-orcamento'
 import { diferenca, fotografar, registrarHistorico, type Ator, type Snapshot } from '../util/historico'
 import { arredondar2 } from '../util/numeros'
 import { Hono, type Context } from 'hono'
@@ -199,4 +200,17 @@ rotasOrcamentos.get('/:id/historico', exigirEquipe('orcamentos.historico'), asyn
     return { id: x.id, quando: x.quando, ator_tipo: x.ator_tipo, ator_nome: x.ator_nome, acao: x.acao, detalhe: x.detalhe, mudancas, resumo }
   })
   return c.json({ eventos })
+})
+
+// A equipe reenvia o e-mail do orçamento (o navegador manda o PDF gerado)
+rotasOrcamentos.post('/:id/email', exigirEquipe('orcamentos.atender'), async (c) => {
+  const e = escopo(c.get('usuario'))
+  if (!e) return c.json({ erro: 'Você não tem permissão para isso.' }, 403)
+  const id = Number(c.req.param('id'))
+  const o = Number.isInteger(id) ? await c.env.DB.prepare(`SELECT o.id, o.enviado_em FROM orcamentos o JOIN clientes cl ON cl.id = o.cliente_id WHERE o.id = ? AND o.status <> 'carrinho'${e.sql}`).bind(id, ...e.args).first() : null
+  if (!o) return c.json({ erro: 'Orçamento não encontrado.' }, 404)
+  const bytes = new Uint8Array(await c.req.arrayBuffer())
+  if (bytes.length < 100 || bytes.length > 5 * 1024 * 1024 || String.fromCharCode(...bytes.subarray(0, 4)) !== '%PDF') return c.json({ erro: 'PDF inválido.' }, 400)
+  const r = await enviarEmailsOrcamento(c.env, id, bytes, atorEquipe(c.get('usuario')), false)
+  return c.json({ ok: true, email: r })
 })
