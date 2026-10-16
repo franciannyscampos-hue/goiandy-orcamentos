@@ -88,3 +88,10 @@ button.link:hover { background: none; text-decoration: underline; }
 .aviso-cnpj { flex: 1; min-width: 160px; }
 .erro-texto { color: var(--erro); }
 .ok-texto { color: #067647; }
+
+.passos { margin: 8px 0 12px; padding-left: 20px; line-height: 1.6; }
+.resumo-import { display: flex; gap: 24px; flex-wrap: wrap; margin: 4px 0 12px; }
+.resumo-import strong { font-size: 1.4rem; }
+.erros-import { max-height: 260px; overflow-y: auto; margin-top: 10px; }
+input[type=file] { padding: 8px; }
+.dica { margin-top: 4px; font-size: .78rem; color: var(--mudo); line-height: 1.35; }

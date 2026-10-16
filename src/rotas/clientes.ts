@@ -4,6 +4,7 @@ import { exigirEquipe } from '../auth/sessao'
 import { limpar, type Campo } from './cadastro-generico'
 import { cnpjValido, soDigitos } from '../util/validar'
 import { consultarCnpj } from '../util/cnpj-consulta'
+import { criarImportacao, minusculo } from './importacao'
 
 const t = (nome: string, rotulo: string, max = 200, extra: Partial<Campo> = {}): Campo => ({ nome, rotulo, tipo: 'texto', max, ...extra })
 
@@ -177,3 +178,70 @@ rotasClientes.put('/compradores/:cid', exigirEquipe('clientes.editar'), async (c
   const item = await c.env.DB.prepare(`SELECT ${COLUNAS_COMPRADOR} FROM compradores WHERE id = ?`).bind(cid).first()
   return c.json({ item })
 })
+
+// Importação em massa de clientes (a chave é o CNPJ; vendedor e transportadora entram pelo nome já cadastrado).
+async function mapaNomes(db: D1Database, tabela: 'vendedores' | 'transportadoras') {
+  const r = await db.prepare(`SELECT id, nome FROM ${tabela}`).all<{ id: number; nome: string }>()
+  return new Map((r.results ?? []).map((x) => [minusculo(x.nome), x.id]))
+}
+
+rotasClientes.route(
+  '/',
+  criarImportacao({
+    tabela: 'clientes',
+    campos: CAMPOS_CLIENTE,
+    permissao: 'clientes.editar',
+    comCriadoEm: true,
+    colunas: [
+      { titulo: 'CNPJ', campo: 'cnpj', exemplo: '45.723.174/0001-10', obrigatorio: true, largura: 22 },
+      { titulo: 'Razão social', campo: 'razao_social', exemplo: 'Mercado Bom Ltda', obrigatorio: true, largura: 32 },
+      { titulo: 'Nome fantasia', campo: 'nome_fantasia', exemplo: 'Mercado Bom', largura: 24 },
+      { titulo: 'Inscrição estadual', campo: 'inscricao_estadual', exemplo: '13.456.789-0', largura: 20 },
+      { titulo: 'Endereço', campo: 'endereco', exemplo: 'Av. Principal, 100, Centro', largura: 34 },
+      { titulo: 'CEP', campo: 'cep', exemplo: '78005-000' },
+      { titulo: 'Cidade', campo: 'cidade', exemplo: 'Cuiabá' },
+      { titulo: 'UF', campo: 'uf', exemplo: 'MT', largura: 6 },
+      { titulo: 'Telefone', campo: 'telefone', exemplo: '(65) 3333-4444' },
+      { titulo: 'WhatsApp', campo: 'whatsapp', exemplo: '(65) 99999-0000' },
+      { titulo: 'E-mail NF-e', campo: 'email_nfe', exemplo: 'nfe@mercadobom.com.br', largura: 28 },
+      { titulo: 'E-mail financeiro', campo: 'email_financeiro', exemplo: 'financeiro@mercadobom.com.br', largura: 28 },
+      { titulo: 'Segmento', campo: 'segmento', exemplo: 'Utilidades domésticas', largura: 24 },
+      { titulo: 'Categoria', campo: 'categoria', exemplo: 'A', largura: 14 },
+      { titulo: 'Rede', campo: 'rede', exemplo: 'Rede Bom Preço', largura: 20 },
+      { titulo: 'Suframa', campo: 'suframa', exemplo: '' },
+      { titulo: 'Código SuasVendas', campo: 'codigo_suasvendas', exemplo: '1234', largura: 18 },
+      { titulo: 'Vendedor (nome já cadastrado)', campo: 'vendedor', exemplo: 'Maria Souza', largura: 28 },
+      { titulo: 'Transportadora (nome já cadastrado)', campo: 'transportadora', exemplo: 'Rodonaves', largura: 32 },
+      { titulo: 'Pode ver preços (Sim/Não)', campo: 'ver_precos', exemplo: 'Sim', largura: 24 },
+      { titulo: 'Ativo (Sim/Não)', campo: 'ativo', exemplo: 'Sim' }
+    ],
+    preparar: async (db) => {
+      const existentes = new Map(
+        ((await db.prepare('SELECT id, cnpj FROM clientes').all<{ id: number; cnpj: string }>()).results ?? []).map((x) => [x.cnpj, x.id])
+      )
+      const vendedores = await mapaNomes(db, 'vendedores')
+      const transportadoras = await mapaNomes(db, 'transportadoras')
+      return {
+        chaveDe: (b) => soDigitos(b.cnpj ?? ''),
+        existentes,
+        extras: (b) => {
+          const valores: Record<string, number | null> = {}
+          const erros: string[] = []
+          const v = (b.vendedor ?? '').trim()
+          if (v) {
+            const id = vendedores.get(minusculo(v))
+            if (id === undefined) erros.push(`Vendedor "${v}" não está cadastrado.`)
+            else valores.vendedor_id = id
+          }
+          const t = (b.transportadora ?? '').trim()
+          if (t) {
+            const id = transportadoras.get(minusculo(t))
+            if (id === undefined) erros.push(`Transportadora "${t}" não está cadastrada.`)
+            else valores.transportadora_id = id
+          }
+          return { valores, erros }
+        }
+      }
+    }
+  })
+)

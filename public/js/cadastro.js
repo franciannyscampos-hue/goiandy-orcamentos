@@ -1,5 +1,6 @@
 // Tela genérica de cadastro: lista com busca, botão Novo e formulário em janela.
 import { el, api, pode } from './util.js'
+import { abrirImportacao } from './importar.js'
 
 function criarCampo(c, valor) {
   const id = 'f_' + c.nome
@@ -57,7 +58,10 @@ export function telaCadastro(config, usuario) {
   const botaoNovo = podeEditar ? el('button', { type: 'button', class: 'botao-pequeno' }, '+ Novo') : null
   botaoNovo?.addEventListener('click', () => abrirFormulario(null))
 
-  const cabecalho = el('div', { class: 'barra' }, el('h2', {}, config.titulo), el('div', { class: 'barra-acoes' }, campoBusca, botaoNovo))
+  const botaoImportar = podeEditar && config.importar
+    ? el('button', { type: 'button', class: 'secundario botao-pequeno', onclick: () => abrirImportacao({ rotulo: config.titulo, apiBase: config.api, aoTerminar: () => carregar() }) }, '⬆ Importar planilha')
+    : null
+  const cabecalho = el('div', { class: 'barra' }, el('h2', {}, config.titulo), el('div', { class: 'barra-acoes' }, campoBusca, botaoImportar, botaoNovo))
   const tabela = el(
     'table',
     { class: 'tabela' },

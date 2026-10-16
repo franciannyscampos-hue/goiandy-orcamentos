@@ -9,6 +9,7 @@ export const telas = {
     api: '/vendedores',
     permVer: 'clientes.ver',
     permEditar: 'clientes.editar',
+    importar: true,
     colunas: [
       { campo: 'nome', rotulo: 'Nome' },
       { campo: 'email', rotulo: 'E-mail' },
@@ -26,6 +27,7 @@ export const telas = {
     api: '/transportadoras',
     permVer: 'clientes.ver',
     permEditar: 'clientes.editar',
+    importar: true,
     colunas: [
       { campo: 'nome', rotulo: 'Nome' },
       { campo: 'codigo', rotulo: 'Código' },
@@ -45,6 +47,7 @@ export const telas = {
     api: '/industrias',
     permVer: 'industrias.ver',
     permEditar: 'industrias.editar',
+    importar: true,
     colunas: [
       { campo: 'nome', rotulo: 'Nome' },
       { campo: 'tipo_frete', rotulo: 'Frete' },

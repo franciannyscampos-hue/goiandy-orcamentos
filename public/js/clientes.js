@@ -1,5 +1,6 @@
 // Tela de clientes (CNPJ): lista, ficha completa e compradores de cada CNPJ.
 import { el, api, pode, formatarCnpj } from './util.js'
+import { abrirImportacao } from './importar.js'
 
 const SECOES = [
   {
@@ -29,15 +30,15 @@ const SECOES = [
   {
     titulo: 'Classificação',
     campos: [
-      { nome: 'segmento', rotulo: 'Segmento' },
-      { nome: 'categoria', rotulo: 'Categoria' },
-      { nome: 'rede', rotulo: 'Rede' }
+      { nome: 'segmento', rotulo: 'Segmento', ajuda: 'Ramo de atividade do cliente (ex.: papelaria, utilidades domésticas, farmácia, material de construção). Ajuda a saber o que oferecer a ele.' },
+      { nome: 'categoria', rotulo: 'Categoria', ajuda: 'Classificação interna da Goiandy para esse cliente (ex.: A, B, C, ou ouro, prata), usada para priorizar atendimento.' },
+      { nome: 'rede', rotulo: 'Rede', ajuda: 'Se a loja faz parte de uma rede ou grupo de lojas, escreva o nome da rede (ex.: Rede Bom Preço). Lojas independentes ficam em branco.' }
     ]
   }
 ]
 
-function linhaCampo(rotulo, entrada) {
-  return el('div', { class: 'campo' }, el('label', {}, rotulo), entrada)
+function linhaCampo(rotulo, entrada, ajuda) {
+  return el('div', { class: 'campo' }, el('label', {}, ajuda ? rotulo + ' *' : rotulo), entrada, ajuda ? el('div', { class: 'dica' }, '* ' + ajuda) : '')
 }
 
 function entradaTexto(c, valor) {
@@ -72,10 +73,14 @@ export function telaClientes(usuario) {
   })
   const botaoNovo = podeEditar ? el('button', { type: 'button', class: 'botao-pequeno', onclick: () => abrirFicha(null) }, '+ Novo cliente') : null
 
+  const botaoImportar = podeEditar
+    ? el('button', { type: 'button', class: 'secundario botao-pequeno', onclick: () => abrirImportacao({ rotulo: 'Clientes', apiBase: '/clientes', aoTerminar: () => carregar() }) }, '⬆ Importar planilha')
+    : null
+
   const pagina = el(
     'section',
     { class: 'pagina' },
-    el('div', { class: 'barra' }, el('h2', {}, 'Clientes'), el('div', { class: 'barra-acoes' }, campoBusca, botaoNovo)),
+    el('div', { class: 'barra' }, el('h2', {}, 'Clientes'), el('div', { class: 'barra-acoes' }, campoBusca, botaoImportar, botaoNovo)),
     el(
       'div',
       { class: 'tabela-caixa' },
@@ -132,7 +137,7 @@ export function telaClientes(usuario) {
     for (const s of SECOES) {
       form.append(el('h4', {}, s.titulo))
       const grade = el('div', { class: 'grade-2' })
-      for (const c of s.campos) grade.append(linhaCampo(c.rotulo, entradaTexto(c, c.nome === 'cnpj' ? formatarCnpj(cliente.cnpj) : cliente[c.nome])))
+      for (const c of s.campos) grade.append(linhaCampo(c.rotulo, entradaTexto(c, c.nome === 'cnpj' ? formatarCnpj(cliente.cnpj) : cliente[c.nome]), c.ajuda))
       form.append(grade)
     }
     // Consulta do CNPJ na Receita: preenche só os campos que ainda estão vazios.
