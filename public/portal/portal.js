@@ -18,8 +18,9 @@ function mostrarErro(form, texto) {
 
 function telaLogin() {
   const form = el('form', { class: 'cartao' },
-    el('h1', {}, 'Goiandy Representações'),
-    el('p', { class: 'sub' }, 'Catálogo e orçamentos para clientes'),
+    el('img', { class: 'logo-login', src: '/portal/logo-goiandy.png', alt: 'Goiandy Representações' }),
+    el('h1', { style: 'text-align:center' }, 'Catálogo Goiandy'),
+    el('p', { class: 'sub', style: 'text-align:center' }, 'Acesso para clientes'),
     ...campo('E-mail', 'email', 'email', { autocomplete: 'username' }),
     ...campo('Senha', 'senha', 'password', { autocomplete: 'current-password' }),
     el('button', { type: 'submit' }, 'Entrar'))
@@ -132,7 +133,7 @@ function painel(eu) {
   raiz.className = ''
   raiz.replaceChildren(
     el('header', { class: 'p-topo' },
-      el('a', { class: 'marca', href: '#/' }, 'Goiandy Representações'),
+      el('a', { class: 'marca', href: '#/' }, el('img', { src: '/portal/logo-goiandy.png', alt: 'Goiandy Representações' }), el('span', {}, 'Goiandy Representações')),
       el('div', { class: 'p-busca' }, campoBuscaGlobal, sugestoes),
       el('div', { class: 'quem' }, el('span', {}, `${eu.cliente_nome} · ${eu.nome}`), sair)),
     conteudo)

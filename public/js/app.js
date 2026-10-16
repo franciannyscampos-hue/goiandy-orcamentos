@@ -22,8 +22,9 @@ function telaLogin() {
   const form = el(
     'form',
     { class: 'cartao' },
-    el('h1', {}, 'Goiandy Orçamentos'),
-    el('p', { class: 'sub' }, 'Acesso da equipe'),
+    el('img', { class: 'logo-login', src: '/portal/logo-goiandy.png', alt: 'Goiandy' }),
+    el('h1', { style: 'text-align:center' }, 'Goiandy Orçamentos'),
+    el('p', { class: 'sub', style: 'text-align:center' }, 'Acesso da equipe'),
     ...campo('E-mail', 'email', 'email', { autocomplete: 'username' }),
     ...campo('Senha', 'senha', 'password', { autocomplete: 'current-password' }),
     el('button', { type: 'submit' }, 'Entrar')
@@ -107,7 +108,7 @@ function painel(usuario) {
   window.onhashchange = rotear
   raiz.className = 'painel'
   raiz.replaceChildren(
-    el('header', { class: 'topo' }, el('strong', {}, 'Goiandy Orçamentos'), menu, el('span', { class: 'usuario' }, usuario.nome, ' · ', sair)),
+    el('header', { class: 'topo' }, el('span', { class: 'marca-goiandy' }, el('img', { src: '/portal/logo-goiandy.png', alt: '' }), el('strong', {}, 'Orçamentos')), menu, el('span', { class: 'usuario' }, usuario.nome, ' · ', sair)),
     conteudo
   )
   rotear()
