@@ -49,7 +49,7 @@ rotasItens.get('/industrias', exigirEquipe('itens.ver'), async (c) => {
 })
 
 // Filtros comuns da lista e do relatório: indústria (opcional), busca e com/sem foto.
-function filtrosItens(c: { req: { query: (k: string) => string | undefined } }) {
+function filtrosItens(c: { req: { query: (k: string) => string | undefined } }, ignorarFoto = false) {
   const filtros: string[] = []
   const args: unknown[] = []
   const industria = Number(c.req.query('industria_id'))
@@ -63,8 +63,8 @@ function filtrosItens(c: { req: { query: (k: string) => string | undefined } }) 
     args.push(`%${busca}%`, `%${busca}%`, `%${busca}%`)
   }
   const foto = c.req.query('foto') ?? (c.req.query('sem_foto') === '1' ? 'sem' : '')
-  if (foto === 'sem') filtros.push('NOT EXISTS (SELECT 1 FROM fotos f WHERE f.item_id = it.id)')
-  if (foto === 'com') filtros.push('EXISTS (SELECT 1 FROM fotos f WHERE f.item_id = it.id)')
+  if (!ignorarFoto && foto === 'sem') filtros.push('NOT EXISTS (SELECT 1 FROM fotos f WHERE f.item_id = it.id)')
+  if (!ignorarFoto && foto === 'com') filtros.push('EXISTS (SELECT 1 FROM fotos f WHERE f.item_id = it.id)')
   return { filtros, args }
 }
 
@@ -73,6 +73,12 @@ rotasItens.get('/', exigirEquipe('itens.ver'), async (c) => {
   const { filtros, args } = filtrosItens(c)
   const onde = filtros.length ? filtros.join(' AND ') : '1 = 1'
   const total = await c.env.DB.prepare(`SELECT COUNT(*) AS n FROM itens it WHERE ${onde}`).bind(...args).first<{ n: number }>()
+  // Totais da indústria/busca escolhidas, sem olhar o filtro de foto (para mostrar "X com foto e Y sem foto")
+  const f2 = filtrosItens(c, true)
+  const resumo = await c.env.DB.prepare(
+    `SELECT COUNT(*) AS total, COALESCE(SUM(CASE WHEN EXISTS (SELECT 1 FROM fotos f WHERE f.item_id = it.id) THEN 1 ELSE 0 END), 0) AS com
+       FROM itens it WHERE ${f2.filtros.length ? f2.filtros.join(' AND ') : '1 = 1'}`
+  ).bind(...f2.args).first<{ total: number; com: number }>()
   const r = await c.env.DB.prepare(
     `SELECT it.id, it.referencia, it.descricao, it.categoria, it.ativo, ind.nome AS industria,
             (SELECT COUNT(*) FROM fotos f WHERE f.item_id = it.id) AS n_fotos,
@@ -80,7 +86,7 @@ rotasItens.get('/', exigirEquipe('itens.ver'), async (c) => {
        FROM itens it JOIN industrias ind ON ind.id = it.industria_id WHERE ${onde}
       ORDER BY ind.nome COLLATE NOCASE, it.referencia COLLATE NOCASE LIMIT ? OFFSET ?`
   ).bind(...args, POR_PAGINA, (pagina - 1) * POR_PAGINA).all()
-  return c.json({ itens: r.results, total: total?.n ?? 0, pagina, por_pagina: POR_PAGINA })
+  return c.json({ itens: r.results, total: total?.n ?? 0, pagina, por_pagina: POR_PAGINA, resumo: { total: resumo?.total ?? 0, com: resumo?.com ?? 0, sem: (resumo?.total ?? 0) - (resumo?.com ?? 0) } })
 })
 
 // Relatório para Excel: devolve em blocos (depois_id) para a tela juntar tudo em uma planilha só.

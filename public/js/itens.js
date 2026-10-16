@@ -44,12 +44,14 @@ export function telaItens(usuario) {
   const rodape = el('div', { class: 'barra' })
   const lista = el('div', { class: 'tabela-caixa' }, el('table', { class: 'tabela' }, el('thead', {}, el('tr', {}, ...['', 'Ref.', 'Descrição', 'Indústria', 'Categoria', 'Fotos', ''].map((x) => el('th', {}, x)))), corpo))
   const aviso = el('p', { class: 'mudo' })
+  const resumoEl = el('div', { class: 'resumo-import' })
   const botaoLote = podeFoto ? el('button', { type: 'button', class: 'secundario botao-pequeno', onclick: () => envioEmMassa() }, '⬆ Enviar fotos em massa') : null
   const pagina = el(
     'section',
     { class: 'pagina' },
     el('div', { class: 'barra' }, el('h2', {}, 'Itens'), el('div', { class: 'barra-acoes' }, seletor, botaoLote)),
     el('div', { class: 'barra' }, el('div', { class: 'barra-acoes' }, campoBusca, filtroFotoSel), botaoExcel),
+    resumoEl,
     aviso,
     lista,
     rodape
@@ -117,6 +119,9 @@ export function telaItens(usuario) {
   async function carregar() {
     const r = await api(`/itens?${parametros()}&pagina=${pag}`)
     if (!r.ok) return (aviso.textContent = r.dados.erro || 'Não foi possível carregar.')
+    const rs = r.dados.resumo
+    const bloco = (n, texto, valor) => el('button', { type: 'button', class: 'link bloco-resumo' + (filtroFoto === valor ? ' ativo' : ''), onclick: () => { filtroFoto = valor; filtroFotoSel.value = valor; pag = 1; carregar() } }, el('strong', {}, String(n)), ' ' + texto)
+    resumoEl.replaceChildren(bloco(rs.total, 'itens no total', ''), bloco(rs.com, 'com foto', 'com'), bloco(rs.sem, 'sem foto', 'sem'))
     aviso.textContent = r.dados.total ? '' : 'Nenhum item encontrado. Os itens são criados pela importação da tabela de preços.'
     lista.style.display = r.dados.total ? '' : 'none'
     corpo.replaceChildren(

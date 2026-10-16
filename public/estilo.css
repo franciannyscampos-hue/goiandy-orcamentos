@@ -120,3 +120,7 @@ progress { width: 100%; height: 10px; }
 .slot-foto img, .sem-foto { width: 100%; aspect-ratio: 1; object-fit: contain; border: 1px solid var(--borda); border-radius: 8px; background: #fff; }
 .sem-foto { display: grid; place-items: center; color: var(--mudo); font-size: .82rem; background: var(--fundo); }
 .slot-foto .acoes-cartao { justify-content: center; margin-top: 6px; }
+
+.bloco-resumo { text-decoration: none; color: var(--texto); font-size: .95rem; }
+.bloco-resumo:hover { text-decoration: none; background: none; color: var(--destaque); }
+.bloco-resumo.ativo { color: var(--destaque); text-decoration: underline; }
