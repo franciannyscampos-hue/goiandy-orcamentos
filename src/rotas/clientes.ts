@@ -2,6 +2,8 @@ import { Hono } from 'hono'
 import type { Bindings, Variaveis } from '../types'
 import { exigirEquipe } from '../auth/sessao'
 import { limpar, type Campo } from './cadastro-generico'
+import { cnpjValido, soDigitos } from '../util/validar'
+import { consultarCnpj } from '../util/cnpj-consulta'
 
 const t = (nome: string, rotulo: string, max = 200, extra: Partial<Campo> = {}): Campo => ({ nome, rotulo, tipo: 'texto', max, ...extra })
 
@@ -57,6 +59,16 @@ rotasClientes.get('/', exigirEquipe('clientes.ver'), async (c) => {
      ORDER BY c.ativo DESC, c.razao_social COLLATE NOCASE`
   ).all()
   return c.json({ itens: r.results })
+})
+
+// Consulta o CNPJ na Receita (BrasilAPI) e avisa se já está cadastrado. Fica antes de /:id.
+rotasClientes.get('/consulta-cnpj/:cnpj', exigirEquipe('clientes.editar'), async (c) => {
+  const cnpj = soDigitos(c.req.param('cnpj'))
+  if (!cnpjValido(cnpj)) return c.json({ erro: 'CNPJ não é um CNPJ válido.' }, 400)
+  const existente = await c.env.DB.prepare('SELECT id, razao_social FROM clientes WHERE cnpj = ?').bind(cnpj).first<{ id: number; razao_social: string }>()
+  const r = await consultarCnpj(cnpj)
+  if (!r.ok) return c.json({ erro: r.erro, ja_cadastrado: existente }, r.status as 404 | 502)
+  return c.json({ dados: r.dados, ja_cadastrado: existente })
 })
 
 rotasClientes.get('/:id', exigirEquipe('clientes.ver'), async (c) => {

@@ -83,3 +83,8 @@ button.link:hover { background: none; text-decoration: underline; }
 .sub-form { background: var(--fundo); border-radius: 10px; padding: 4px 14px 14px; margin-top: 8px; }
 .compradores > button { margin-top: 12px; }
 @media (max-width: 640px) { .grade-2 { grid-template-columns: 1fr; } }
+
+.linha-consulta { display: flex; align-items: center; gap: 10px; margin-top: 8px; flex-wrap: wrap; }
+.aviso-cnpj { flex: 1; min-width: 160px; }
+.erro-texto { color: var(--erro); }
+.ok-texto { color: #067647; }

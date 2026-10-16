@@ -127,6 +127,7 @@ export function telaClientes(usuario) {
     const vendedores = (vend.dados.itens || []).filter((v) => v.ativo || v.id === cliente.vendedor_id)
     const transportadoras = (transp.dados.itens || []).filter((t) => t.ativo || t.id === cliente.transportadora_id)
 
+    let idAtual = id
     const form = el('form', { class: 'formulario' })
     for (const s of SECOES) {
       form.append(el('h4', {}, s.titulo))
@@ -134,6 +135,44 @@ export function telaClientes(usuario) {
       for (const c of s.campos) grade.append(linhaCampo(c.rotulo, entradaTexto(c, c.nome === 'cnpj' ? formatarCnpj(cliente.cnpj) : cliente[c.nome])))
       form.append(grade)
     }
+    // Consulta do CNPJ na Receita: preenche só os campos que ainda estão vazios.
+    const campoCnpj = form.elements.cnpj
+    const aviso = el('div', { class: 'aviso-cnpj mudo pequeno' })
+    const botaoConsulta = el('button', { type: 'button', class: 'secundario botao-pequeno' }, 'Consultar CNPJ')
+    campoCnpj.closest('.campo').append(el('div', { class: 'linha-consulta' }, botaoConsulta, aviso))
+    const mapa = { razao_social: 'razao_social', nome_fantasia: 'nome_fantasia', endereco: 'endereco', cep: 'cep', cidade: 'cidade', uf: 'uf', telefone: 'telefone' }
+    let ultimaConsulta = ''
+    async function consultar() {
+      const digitos = campoCnpj.value.replace(/\D/g, '')
+      if (digitos.length !== 14 || digitos === ultimaConsulta) return
+      ultimaConsulta = digitos
+      botaoConsulta.disabled = true
+      aviso.className = 'aviso-cnpj mudo pequeno'
+      aviso.textContent = 'Consultando a Receita...'
+      const r = await api('/clientes/consulta-cnpj/' + digitos)
+      botaoConsulta.disabled = false
+      if (!r.ok) {
+        ultimaConsulta = ''
+        aviso.className = 'aviso-cnpj erro-texto pequeno'
+        aviso.textContent = r.dados.erro || 'Não foi possível consultar.'
+        return
+      }
+      const d = r.dados.dados
+      for (const [campo, chave] of Object.entries(mapa)) {
+        const e = form.elements[campo]
+        if (e && !e.value.trim() && d[chave]) e.value = d[chave]
+      }
+      campoCnpj.value = formatarCnpj(digitos)
+      const partes = [`Dados da Receita (${d.fonte}).`, d.situacao ? `Situação: ${d.situacao}.` : '']
+      const atencao = d.situacao && d.situacao.toUpperCase() !== 'ATIVA'
+      const existente = r.dados.ja_cadastrado && r.dados.ja_cadastrado.id !== idAtual
+      if (existente) partes.push(`Atenção: este CNPJ já está cadastrado (${r.dados.ja_cadastrado.razao_social}).`)
+      aviso.className = 'aviso-cnpj pequeno ' + (atencao || existente ? 'erro-texto' : 'ok-texto')
+      aviso.textContent = partes.filter(Boolean).join(' ')
+    }
+    botaoConsulta.addEventListener('click', () => { ultimaConsulta = ''; consultar() })
+    campoCnpj.addEventListener('input', () => { if (!idAtual && campoCnpj.value.replace(/\D/g, '').length === 14) consultar() })
+
     form.append(el('h4', {}, 'Atendimento'))
     form.append(
       el(
@@ -159,7 +198,6 @@ export function telaClientes(usuario) {
     fechar.disabled = false
 
     const dialogo = el('dialog', { class: 'janela larga' }, el('h3', {}, id ? cliente.nome_fantasia || cliente.razao_social : 'Novo cliente'), form)
-    let idAtual = id
 
     // Compradores: só depois que o cliente existe
     const areaCompradores = el('div', { class: 'compradores' })
