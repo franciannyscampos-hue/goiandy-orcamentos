@@ -61,6 +61,7 @@ export function telaTabelasPreco(usuario) {
         { class: 'acoes-cartao' },
         el('button', { type: 'button', class: 'secundario botao-pequeno', onclick: () => verItens(t) }, 'Ver itens'),
         podeEditar ? el('button', { type: 'button', class: 'secundario botao-pequeno', onclick: () => abrirImportacao(t) }, '⬆ Importar planilha') : '',
+        pode(usuario, 'clientes.ver') ? el('button', { type: 'button', class: 'secundario botao-pequeno', onclick: () => clientesLiberados(t) }, 'Clientes liberados') : '',
         podeEditar ? el('button', { type: 'button', class: 'link', onclick: () => formularioTabela(t) }, 'Editar') : ''
       )
     )
@@ -131,6 +132,63 @@ export function telaTabelasPreco(usuario) {
     document.body.append(dialogo)
     dialogo.showModal()
     nome.focus()
+  }
+
+  // ---------- clientes com a tabela liberada ----------
+  async function clientesLiberados(t) {
+    const podeLiberar = pode(usuario, 'clientes.editar')
+    const [lc, ls] = await Promise.all([api('/liberacoes/clientes'), api('/liberacoes/tabela/' + t.id)])
+    if (!lc.ok || !ls.ok) return alert((lc.ok ? ls : lc).dados.erro || 'Não foi possível abrir.')
+    const clientes = lc.dados.itens
+    const original = new Set(ls.dados.clientes)
+    const marcados = new Set(original)
+    const semAcento = (x) => String(x ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+    const dialogo = el('dialog', { class: 'janela larga' }, el('h3', {}, `Clientes liberados — ${t.nome}`))
+    dialogo.addEventListener('close', () => { dialogo.remove(); listar() })
+    const filtro = el('input', { type: 'search', placeholder: 'Buscar cliente por nome, CNPJ ou cidade...' })
+    const lista = el('div', { class: 'lista-liberacao alta' })
+    const resumo = el('span', { class: 'mudo pequeno' })
+    const msg = el('div')
+    let visiveis = []
+    const atualizar = () => (resumo.textContent = `${marcados.size} de ${clientes.length} cliente${clientes.length === 1 ? '' : 's'} com esta tabela liberada`)
+    function desenhar() {
+      const q = semAcento(filtro.value)
+      const dig = q.replace(/\D/g, '')
+      visiveis = clientes.filter((c) => !q || semAcento(`${c.razao_social} ${c.nome_fantasia} ${c.cidade}`).includes(q) || (dig.length >= 3 && c.cnpj.includes(dig)))
+      lista.replaceChildren(
+        ...visiveis.slice(0, 300).map((c) => {
+          const cx = el('input', { type: 'checkbox', disabled: !podeLiberar })
+          cx.checked = marcados.has(c.id)
+          cx.addEventListener('change', () => { cx.checked ? marcados.add(c.id) : marcados.delete(c.id); atualizar() })
+          return el('label', { class: 'campo-check-linha' }, cx, ` ${c.nome_fantasia || c.razao_social}`, el('span', { class: 'mudo pequeno' }, ` · ${[c.cidade, c.uf].filter(Boolean).join('/')}${c.ativo ? '' : ' · inativo'}`))
+        }),
+        visiveis.length > 300 ? el('p', { class: 'mudo pequeno' }, `Mostrando 300 de ${visiveis.length}. Refine a busca.`) : '',
+        visiveis.length ? '' : el('p', { class: 'mudo' }, 'Nenhum cliente encontrado.')
+      )
+    }
+    filtro.addEventListener('input', desenhar)
+    const salvar = el('button', { type: 'button', onclick: async () => {
+      const add = [...marcados].filter((x) => !original.has(x))
+      const rem = [...original].filter((x) => !marcados.has(x))
+      const r = await api('/liberacoes/tabela/' + t.id, { metodo: 'PUT', corpo: { adicionar: add, remover: rem } })
+      if (!r.ok) return msg.replaceChildren(el('div', { class: 'erro', role: 'alert' }, r.dados.erro || 'Não foi possível salvar.'))
+      dialogo.close()
+    } }, 'Salvar')
+    dialogo.append(
+      el('p', { class: 'mudo pequeno' }, 'Marque os clientes (CNPJs) que podem enxergar esta tabela no portal.'),
+      filtro,
+      podeLiberar ? el('div', { class: 'linha-consulta' },
+        el('button', { type: 'button', class: 'secundario botao-pequeno', onclick: () => { for (const c of visiveis) marcados.add(c.id); desenhar(); atualizar() } }, 'Marcar todos da busca'),
+        el('button', { type: 'button', class: 'secundario botao-pequeno', onclick: () => { for (const c of visiveis) marcados.delete(c.id); desenhar(); atualizar() } }, 'Desmarcar todos da busca')) : '',
+      el('div', { style: 'margin:6px 0' }, resumo),
+      lista,
+      msg,
+      el('div', { class: 'botoes' }, el('button', { type: 'button', class: 'secundario', onclick: () => dialogo.close() }, podeLiberar ? 'Cancelar' : 'Fechar'), podeLiberar ? salvar : '')
+    )
+    document.body.append(dialogo)
+    dialogo.showModal()
+    atualizar()
+    desenhar()
   }
 
   // ---------- itens da tabela ----------

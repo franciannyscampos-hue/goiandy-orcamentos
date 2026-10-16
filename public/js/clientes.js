@@ -93,7 +93,7 @@ export function telaClientes(usuario) {
     el(
       'div',
       { class: 'tabela-caixa' },
-      el('table', { class: 'tabela' }, el('thead', {}, el('tr', {}, ...['Cliente', 'CNPJ', 'Cidade', 'Vendedor', 'Compradores', 'Preços', ''].map((x) => el('th', {}, x)))), corpo)
+      el('table', { class: 'tabela' }, el('thead', {}, el('tr', {}, ...['Cliente', 'CNPJ', 'Cidade', 'Vendedor', 'Compradores', 'Tabelas', 'Preços', ''].map((x) => el('th', {}, x)))), corpo)
     ),
     vazio
   )
@@ -114,6 +114,7 @@ export function telaClientes(usuario) {
           el('td', {}, [i.cidade, i.uf].filter(Boolean).join('/') || '—'),
           el('td', {}, i.vendedor_nome || '—'),
           el('td', {}, String(i.n_compradores)),
+          el('td', {}, i.n_liberacoes ? String(i.n_liberacoes) : '—'),
           el('td', {}, i.ver_precos ? 'Vê' : 'Vitrine'),
           el('td', { class: 'acao' }, el('button', { type: 'button', class: 'link', onclick: () => abrirFicha(i.id) }, podeEditar ? 'Abrir' : 'Ver'))
         )
@@ -328,11 +329,67 @@ export function telaClientes(usuario) {
       areaCompradores.replaceChildren(el('h4', {}, b ? 'Editar comprador' : 'Novo comprador'), f)
       nome.focus()
     }
+    // Liberação de tabelas de preço por cliente
+    const areaLiberacao = el('div', { class: 'compradores' })
+    async function desenharLiberacao() {
+      areaLiberacao.replaceChildren(el('h4', {}, 'Tabelas liberadas'), el('p', { class: 'mudo pequeno' }, 'Carregando...'))
+      const r = await api('/liberacoes/cliente/' + idAtual)
+      if (!r.ok) return areaLiberacao.replaceChildren(el('h4', {}, 'Tabelas liberadas'), el('p', { class: 'mudo' }, r.dados.erro || 'Não foi possível carregar.'))
+      const industrias = r.dados.industrias
+      const marcadas = new Set()
+      for (const i of industrias) for (const t of i.tabelas) if (t.liberada) marcadas.add(t.id)
+      const resumo = el('span', { class: 'mudo pequeno' })
+      const lista = el('div', { class: 'lista-liberacao' })
+      const msg = el('div')
+      const filtro = el('input', { type: 'search', placeholder: 'Filtrar indústria...' })
+      const prazoTxt = (t) => (t.tipo === 'vista' ? 'À vista' : 'A prazo' + (t.prazo ? ' ' + t.prazo : ''))
+      function atualizarResumo() {
+        const inds = industrias.filter((i) => i.tabelas.some((t) => marcadas.has(t.id))).length
+        resumo.textContent = `${marcadas.size} tabela${marcadas.size === 1 ? '' : 's'} em ${inds} indústria${inds === 1 ? '' : 's'}`
+      }
+      function desenharLista() {
+        const q = semAcento(filtro.value)
+        lista.replaceChildren(
+          ...industrias
+            .filter((i) => !q || semAcento(i.nome).includes(q))
+            .map((i) =>
+              el('div', { class: 'ind-liberacao' },
+                el('strong', {}, i.nome),
+                ...i.tabelas.map((t) => {
+                  const cx = el('input', { type: 'checkbox', disabled: !podeEditar })
+                  cx.checked = marcadas.has(t.id)
+                  cx.addEventListener('change', () => { cx.checked ? marcadas.add(t.id) : marcadas.delete(t.id); atualizarResumo() })
+                  return el('label', { class: 'campo-check-linha' }, cx, ` ${t.nome} · ${prazoTxt(t)}`, t.padrao ? el('span', { class: 'selo selo-ok' }, '★ padrão') : '', t.ativo ? '' : el('span', { class: 'selo' }, 'inativa'))
+                })
+              )
+            )
+        )
+        if (!industrias.length) lista.replaceChildren(el('p', { class: 'mudo' }, 'Ainda não há tabelas de preço cadastradas.'))
+      }
+      filtro.addEventListener('input', desenharLista)
+      const atalhos = podeEditar
+        ? el('div', { class: 'linha-consulta' },
+            el('button', { type: 'button', class: 'secundario botao-pequeno', onclick: () => { for (const i of industrias) { const p = i.tabelas.find((t) => t.padrao); if (p) marcadas.add(p.id) } desenharLista(); atualizarResumo() } }, 'Liberar a tabela padrão de todas'),
+            el('button', { type: 'button', class: 'secundario botao-pequeno', onclick: () => { marcadas.clear(); desenharLista(); atualizarResumo() } }, 'Limpar tudo'),
+            el('button', { type: 'button', class: 'botao-pequeno', onclick: async () => {
+              msg.replaceChildren()
+              const s = await api('/liberacoes/cliente/' + idAtual, { metodo: 'PUT', corpo: { tabelas: [...marcadas] } })
+              msg.replaceChildren(s.ok ? el('div', { class: 'ok' }, 'Liberação salva.') : el('div', { class: 'erro', role: 'alert' }, s.dados.erro || 'Não foi possível salvar.'))
+              if (s.ok) carregar()
+            } }, 'Salvar liberação'))
+        : ''
+      areaLiberacao.replaceChildren(el('h4', {}, 'Tabelas liberadas'), el('p', { class: 'mudo pequeno' }, 'O cliente só enxerga as indústrias e tabelas marcadas aqui. Quem tem mais de uma tabela da mesma indústria escolhe qual usar ao montar o orçamento.'), filtro, el('div', { class: 'pequeno', style: 'margin:6px 0' }, resumo), lista, atalhos, msg)
+      atualizarResumo()
+      desenharLista()
+    }
     function mostrarCompradores() {
       areaCompradores.remove()
+      areaLiberacao.remove()
       if (idAtual) {
         desenharCompradores()
         form.after(areaCompradores)
+        areaCompradores.after(areaLiberacao)
+        desenharLiberacao()
       }
     }
     mostrarCompradores()

@@ -56,7 +56,8 @@ rotasClientes.get('/', exigirEquipe('clientes.ver'), async (c) => {
   const r = await c.env.DB.prepare(
     `SELECT c.id, c.cnpj, c.razao_social, c.nome_fantasia, c.cidade, c.uf, c.ver_precos, c.ativo,
             c.vendedor_id, v.nome AS vendedor_nome,
-            (SELECT COUNT(*) FROM compradores b WHERE b.cliente_id = c.id AND b.ativo = 1) AS n_compradores
+            (SELECT COUNT(*) FROM compradores b WHERE b.cliente_id = c.id AND b.ativo = 1) AS n_compradores,
+            (SELECT COUNT(*) FROM liberacoes l WHERE l.cliente_id = c.id) AS n_liberacoes
      FROM clientes c LEFT JOIN vendedores v ON v.id = c.vendedor_id
      ORDER BY c.ativo DESC, c.razao_social COLLATE NOCASE`
   ).all()

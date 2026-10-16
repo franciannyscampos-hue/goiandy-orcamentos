@@ -176,5 +176,18 @@ export const migracoes: Migracao[] = [
         UNIQUE (item_id, posicao)
       )`
     ]
+  },
+  {
+    id: '004_liberacoes',
+    comandos: [
+      // Quais tabelas de preço cada cliente (CNPJ) enxerga. A indústria liberada é a das tabelas liberadas.
+      `CREATE TABLE IF NOT EXISTS liberacoes (
+        cliente_id INTEGER NOT NULL REFERENCES clientes(id),
+        tabela_id INTEGER NOT NULL REFERENCES tabelas_preco(id),
+        criado_em INTEGER NOT NULL,
+        PRIMARY KEY (cliente_id, tabela_id)
+      )`,
+      `CREATE INDEX IF NOT EXISTS idx_liberacoes_tabela ON liberacoes(tabela_id)`
+    ]
   }
 ]
