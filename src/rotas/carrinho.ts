@@ -291,6 +291,10 @@ rotasCarrinho.post('/orcamentos/:id/pdf', exigirComprador(), async (c) => {
   // Se o PDF não pôde ser gerado, o navegador manda um JSON vazio e o e-mail sai sem anexo
   const semPdf = (c.req.header('content-type') ?? '').includes('application/json')
   const bytes = semPdf ? null : new Uint8Array(await c.req.arrayBuffer())
+  if (semPdf) {
+    const corpo = (await c.req.json().catch(() => ({}))) as { erro?: unknown }
+    if (corpo.erro) await registrarHistorico(c, id, atorDe(eu), 'pdf_falhou', `O navegador do cliente não conseguiu gerar o PDF: ${String(corpo.erro).slice(0, 300)}`)
+  }
   if (bytes && (bytes.length < 100 || bytes.length > 5 * 1024 * 1024 || String.fromCharCode(...bytes.subarray(0, 4)) !== '%PDF')) return c.json({ erro: 'PDF inválido.' }, 400)
   const ult = await c.env.DB.prepare("SELECT MAX(id) AS m FROM orcamento_historico WHERE orcamento_id = ? AND acao IN ('enviado','reenviado')").bind(id).first<{ m: number | null }>()
   const jaEmail = await c.env.DB.prepare("SELECT 1 AS x FROM orcamento_historico WHERE orcamento_id = ? AND acao = 'email' AND id > ?").bind(id, ult?.m ?? 0).first()

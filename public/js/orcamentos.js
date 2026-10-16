@@ -142,7 +142,7 @@ export function telaOrcamentos(usuario) {
     dialogo.showModal()
   }
 
-  const ROTULO = { enviado: 'Orçamento enviado', reenviado: 'Orçamento reenviado', reaberto: 'Reaberto pelo cliente', editado_equipe: 'Itens editados pela equipe', status: 'Situação alterada', edicao_liberada: 'Edição liberada ao cliente', edicao_bloqueada: 'Edição bloqueada', email: 'E-mail' }
+  const ROTULO = { enviado: 'Orçamento enviado', reenviado: 'Orçamento reenviado', reaberto: 'Reaberto pelo cliente', editado_equipe: 'Itens editados pela equipe', status: 'Situação alterada', edicao_liberada: 'Edição liberada ao cliente', edicao_bloqueada: 'Edição bloqueada', email: 'E-mail', pdf_falhou: 'PDF não gerado' }
   async function historico(id) {
     const r = await api(`/orcamentos/${id}/historico`)
     if (!r.ok) return alert(r.dados.erro || 'Não foi possível abrir o histórico.')
