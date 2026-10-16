@@ -4,6 +4,7 @@ import { exigirEquipe } from '../auth/sessao'
 import { limpar, type Campo } from './cadastro-generico'
 import { cnpjValido, soDigitos } from '../util/validar'
 import { consultarCnpj } from '../util/cnpj-consulta'
+import { consultarCep } from '../util/cep-consulta'
 import { criarImportacao, minusculo } from './importacao'
 
 const t = (nome: string, rotulo: string, max = 200, extra: Partial<Campo> = {}): Campo => ({ nome, rotulo, tipo: 'texto', max, ...extra })
@@ -60,6 +61,15 @@ rotasClientes.get('/', exigirEquipe('clientes.ver'), async (c) => {
      ORDER BY c.ativo DESC, c.razao_social COLLATE NOCASE`
   ).all()
   return c.json({ itens: r.results })
+})
+
+// Consulta de CEP (endereço, bairro, cidade e UF).
+rotasClientes.get('/consulta-cep/:cep', exigirEquipe('clientes.editar'), async (c) => {
+  const cep = soDigitos(c.req.param('cep'))
+  if (cep.length !== 8) return c.json({ erro: 'O CEP precisa ter 8 números.' }, 400)
+  const r = await consultarCep(cep)
+  if (!r.ok) return c.json({ erro: r.erro }, r.status as 404 | 502)
+  return c.json({ dados: r.dados })
 })
 
 // Consulta o CNPJ na Receita (BrasilAPI) e avisa se já está cadastrado. Fica antes de /:id.
