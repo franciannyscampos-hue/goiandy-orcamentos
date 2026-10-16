@@ -1,6 +1,6 @@
 import type { Bindings } from '../types'
 import { migracoes } from './migrations'
-import { gerarHashSenha } from '../auth/crypto'
+import { gerarHashSenha, sha256Hex } from '../auth/crypto'
 
 // Lista de permissões do sistema. "*" = tudo (Administrador).
 export const PERMISSOES = [
@@ -76,6 +76,27 @@ async function executar(env: Bindings): Promise<void> {
         )
         .bind('Administrador', env.ADMIN_EMAIL.trim().toLowerCase(), hash, salt, perfil.id, Date.now())
         .run()
+    }
+  }
+
+  // Recuperação de senha do administrador: vale uma única vez para cada valor do segredo ADMIN_REDEFINIR_SENHA.
+  // Depois de usar, o segredo pode ser apagado no Cloudflare.
+  if (env.ADMIN_REDEFINIR_SENHA && env.ADMIN_EMAIL && env.ADMIN_REDEFINIR_SENHA.length >= 10) {
+    const marca = 'redefinir_' + (await sha256Hex(env.ADMIN_REDEFINIR_SENHA)).slice(0, 16)
+    const jaFeito = await db.prepare('SELECT 1 AS x FROM _migracoes WHERE id = ?').bind(marca).first()
+    if (!jaFeito) {
+      const email = env.ADMIN_EMAIL.trim().toLowerCase()
+      const u = await db.prepare('SELECT id FROM usuarios WHERE email = ?').bind(email).first<{ id: number }>()
+      if (u) {
+        const { hash, salt } = await gerarHashSenha(env.ADMIN_REDEFINIR_SENHA)
+        await db.batch([
+          db
+            .prepare('UPDATE usuarios SET senha_hash = ?, senha_salt = ?, deve_trocar_senha = 1, tentativas_falhas = 0, bloqueado_ate = 0, ativo = 1 WHERE id = ?')
+            .bind(hash, salt, u.id),
+          db.prepare("DELETE FROM sessoes WHERE tipo = 'equipe' AND usuario_id = ?").bind(u.id),
+          db.prepare('INSERT OR IGNORE INTO _migracoes (id, aplicada_em) VALUES (?, ?)').bind(marca, Date.now())
+        ])
+      }
     }
   }
 }

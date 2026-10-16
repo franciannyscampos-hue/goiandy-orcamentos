@@ -3,6 +3,7 @@ export type Bindings = {
   DB: D1Database
   ADMIN_EMAIL?: string
   ADMIN_SENHA?: string
+  ADMIN_REDEFINIR_SENHA?: string
 }
 
 export type UsuarioSessao = {
