@@ -86,7 +86,14 @@ async function executar(env: Bindings): Promise<void> {
     const jaFeito = await db.prepare('SELECT 1 AS x FROM _migracoes WHERE id = ?').bind(marca).first()
     if (!jaFeito) {
       const email = env.ADMIN_EMAIL.trim().toLowerCase()
-      const u = await db.prepare('SELECT id FROM usuarios WHERE email = ?').bind(email).first<{ id: number }>()
+      let u = await db.prepare('SELECT id FROM usuarios WHERE email = ?').bind(email).first<{ id: number }>()
+      if (!u) {
+        // O e-mail gravado no banco pode ser outro (ex.: o ADMIN_EMAIL mudou depois do primeiro acesso): usa o primeiro administrador.
+        u = await db
+          .prepare("SELECT u.id FROM usuarios u JOIN perfis p ON p.id = u.perfil_id WHERE p.nome = 'Administrador' ORDER BY u.id LIMIT 1")
+          .first<{ id: number }>()
+        if (u) await db.prepare('UPDATE usuarios SET email = ? WHERE id = ?').bind(email, u.id).run()
+      }
       if (u) {
         const { hash, salt } = await gerarHashSenha(env.ADMIN_REDEFINIR_SENHA)
         await db.batch([
