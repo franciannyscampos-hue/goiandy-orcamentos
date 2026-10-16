@@ -281,5 +281,23 @@ export const migracoes: Migracao[] = [
   {
     id: '008_orcamento_edicao',
     comandos: [`ALTER TABLE orcamentos ADD COLUMN edicao_liberada INTEGER NOT NULL DEFAULT 0`]
+  },
+  {
+    id: '009_orcamento_historico',
+    comandos: [
+      // Histórico do orçamento: só acrescenta linhas (nunca altera nem apaga), para provar quem fez o quê e quando.
+      `CREATE TABLE IF NOT EXISTS orcamento_historico (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        orcamento_id INTEGER NOT NULL REFERENCES orcamentos(id),
+        quando INTEGER NOT NULL,
+        ator_tipo TEXT NOT NULL CHECK (ator_tipo IN ('equipe','comprador')),
+        ator_id INTEGER,
+        ator_nome TEXT NOT NULL DEFAULT '',
+        acao TEXT NOT NULL,
+        detalhe TEXT NOT NULL DEFAULT '',
+        snapshot TEXT NOT NULL DEFAULT ''
+      )`,
+      `CREATE INDEX IF NOT EXISTS idx_orc_hist ON orcamento_historico(orcamento_id, id)`
+    ]
   }
 ]

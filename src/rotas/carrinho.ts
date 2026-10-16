@@ -4,6 +4,9 @@ import { exigirComprador } from '../auth/sessao'
 import { arredondar2, lerNumero } from '../util/numeros'
 import { calcularLinha, mensagemQtd, passoQtd, precoUnitario, qtdValida } from '../util/calculo'
 import { ITEM_VISIVEL, tabelaLiberada } from './portal-comum'
+import { fotografar, registrarHistorico, type Ator } from '../util/historico'
+
+const atorDe = (eu: CompradorSessao): Ator => ({ tipo: 'comprador', id: eu.id, nome: `${eu.nome} (${eu.cliente_nome})` })
 
 const reais = (n: number) => n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
@@ -169,6 +172,7 @@ rotasCarrinho.post('/carrinho/:tabelaId/enviar', exigirComprador(), async (c) =>
     return c.json({ erro: `O pedido mínimo desta indústria é R$ ${reais(t.pedido_minimo)}. Faltam R$ ${reais(arredondar2(t.pedido_minimo - v._numeros.subtotal))}.` }, 400)
   }
   const agora = Date.now()
+  const jaEnviado = ((await c.env.DB.prepare('SELECT enviado_em FROM orcamentos WHERE id = ?').bind(cartId).first<{ enviado_em: number }>())?.enviado_em ?? 0) > 0
   // Congela dados dos itens (códigos, NCM, preço, IPI) no momento do envio
   const dados = await c.env.DB.prepare(
     `SELECT it.id, it.referencia, it.descricao, it.codigo_barras, it.ncm, p.preco, p.preco_promocional, p.ipi
@@ -190,6 +194,7 @@ rotasCarrinho.post('/carrinho/:tabelaId/enviar', exigirComprador(), async (c) =>
   )
   for (let i = 0; i < comandos.length; i += 100) await c.env.DB.batch(comandos.slice(i, i + 100))
   await c.env.DB.prepare('INSERT INTO auditoria (quando, usuario_id, acao, detalhe) VALUES (?, ?, ?, ?)').bind(agora, null, 'orcamento.enviar', `orçamento ${cartId} do comprador ${eu.email}`).run()
+  await registrarHistorico(c, cartId, atorDe(eu), jaEnviado ? 'reenviado' : 'enviado', jaEnviado ? 'Cliente reenviou o orçamento após editar' : 'Cliente enviou o orçamento', await fotografar(c, cartId))
   return c.json({ ok: true, numero: cartId })
 })
 
@@ -260,5 +265,6 @@ rotasCarrinho.post('/orcamentos/:id/reabrir', exigirComprador(), async (c) => {
   if (!t) return c.json({ erro: 'Esta tabela não está mais disponível para você.' }, 404)
   await c.env.DB.prepare("UPDATE orcamentos SET status = 'carrinho', edicao_liberada = 0, atualizado_em = ? WHERE id = ? AND status IN ('Novo','Em atendimento')").bind(Date.now(), id).run()
   await c.env.DB.prepare('INSERT INTO auditoria (quando, usuario_id, acao, detalhe) VALUES (?, ?, ?, ?)').bind(Date.now(), null, 'orcamento.reabrir', `orçamento ${id} reaberto pelo comprador ${eu.email}`).run()
+  await registrarHistorico(c, id, atorDe(eu), 'reaberto', 'Cliente reabriu o orçamento para edição (liberado pela equipe)')
   return c.json({ ok: true, tabela_id: o.tabela_id })
 })

@@ -17,7 +17,8 @@ export const ROTULOS_PERMISSOES: Record<string, { grupo: string; rotulo: string 
   'fotos.enviar': { grupo: 'Itens', rotulo: 'Enviar fotos dos itens' },
   'orcamentos.ver_todos': { grupo: 'Orçamentos', rotulo: 'Ver os orçamentos de todos os clientes' },
   'orcamentos.ver_proprios': { grupo: 'Orçamentos', rotulo: 'Ver só os orçamentos dos clientes dele' },
-  'orcamentos.atender': { grupo: 'Orçamentos', rotulo: 'Atualizar o status dos orçamentos' },
+  'orcamentos.atender': { grupo: 'Orçamentos', rotulo: 'Atender os orçamentos (mudar situação, editar itens, liberar edição)' },
+  'orcamentos.historico': { grupo: 'Orçamentos', rotulo: 'Ver o histórico de alterações dos orçamentos' },
   'equipe.gerenciar': { grupo: 'Equipe', rotulo: 'Gerenciar usuários, perfis e permissões' }
 }
 

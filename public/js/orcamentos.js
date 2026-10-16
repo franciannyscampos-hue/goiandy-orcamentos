@@ -97,6 +97,7 @@ export function telaOrcamentos(usuario) {
       if (!x.ok) return msg.replaceChildren(el('div', { class: 'erro' }, x.dados.erro || 'Erro ao salvar.'))
       dialogo.close(); carregar()
     } }, 'Salvar situação')
+    const verHistorico = el('button', { type: 'button', class: 'secundario', onclick: () => historico(id) }, 'Ver histórico')
     const par = (r1, v) => (v ? el('div', {}, el('span', { class: 'mudo' }, r1 + ': '), String(v)) : '')
     dialogo.append(
       el('h3', {}, `Orçamento nº ${o.id} · ${o.industria}`),
@@ -115,9 +116,29 @@ export function telaOrcamentos(usuario) {
       editavel ? el('div', { class: 'botoes', style: 'justify-content:flex-start' }, salvarItens, liberar) : '',
       podeAtender ? el('div', { class: 'campo' }, el('label', {}, 'Situação'), sel) : el('p', {}, 'Situação: ', selo(o.status)),
       msg,
-      el('div', { class: 'botoes' }, el('button', { type: 'button', class: 'secundario', onclick: () => dialogo.close() }, 'Fechar'), podeAtender ? salvar : ''))
+      el('div', { class: 'botoes' }, pode(usuario, 'orcamentos.historico') ? verHistorico : '', el('button', { type: 'button', class: 'secundario', onclick: () => dialogo.close() }, 'Fechar'), podeAtender ? salvar : ''))
     document.body.append(dialogo)
     dialogo.showModal()
+  }
+
+  const ROTULO = { enviado: 'Orçamento enviado', reenviado: 'Orçamento reenviado', reaberto: 'Reaberto pelo cliente', editado_equipe: 'Itens editados pela equipe', status: 'Situação alterada', edicao_liberada: 'Edição liberada ao cliente', edicao_bloqueada: 'Edição bloqueada' }
+  async function historico(id) {
+    const r = await api(`/orcamentos/${id}/historico`)
+    if (!r.ok) return alert(r.dados.erro || 'Não foi possível abrir o histórico.')
+    const d = el('dialog', { class: 'janela larga' })
+    d.addEventListener('close', () => d.remove())
+    d.append(
+      el('h3', {}, `Histórico do orçamento nº ${id}`),
+      el('p', { class: 'mudo pequeno' }, 'Registro permanente: não pode ser alterado nem apagado. Mostra quem fez cada ação, quando e o que mudou.'),
+      ...r.dados.eventos.map((e) => el('div', { style: 'border-left:3px solid ' + (e.ator_tipo === 'comprador' ? '#f48a0a' : '#02264a') + ';padding:4px 0 4px 12px;margin:12px 0' },
+        el('div', {}, el('strong', {}, ROTULO[e.acao] || e.acao), ' · ', el('span', { class: 'mudo' }, dh(e.quando))),
+        el('div', { class: 'pequeno' }, (e.ator_tipo === 'comprador' ? 'Cliente: ' : 'Equipe: ') + e.ator_nome),
+        e.detalhe ? el('div', { class: 'mudo pequeno' }, e.detalhe) : '',
+        e.resumo ? el('div', { class: 'pequeno' }, `${e.resumo.itens} produto(s) · total ${brl(e.resumo.total)}`) : '',
+        ...e.mudancas.map((m) => el('div', { class: 'pequeno' }, '• ' + m)))),
+      el('div', { class: 'botoes' }, el('button', { type: 'button', class: 'secundario', onclick: () => d.close() }, 'Fechar')))
+    document.body.append(d)
+    d.showModal()
   }
 
   carregar()

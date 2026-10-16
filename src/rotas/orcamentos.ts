@@ -1,5 +1,6 @@
 import { calcularLinha, passoQtd, precoUnitario } from '../util/calculo'
 import { ITEM_VISIVEL } from './portal-comum'
+import { diferenca, fotografar, registrarHistorico, type Ator, type Snapshot } from '../util/historico'
 import { arredondar2 } from '../util/numeros'
 import { Hono, type Context } from 'hono'
 import type { Bindings, UsuarioSessao, Variaveis } from '../types'
@@ -8,6 +9,7 @@ import { exigirEquipe, temPermissao } from '../auth/sessao'
 // Orçamentos recebidos, vistos pela equipe. Quem só tem "ver próprios" enxerga apenas os clientes do seu vendedor.
 export const rotasOrcamentos = new Hono<{ Bindings: Bindings; Variables: Variaveis }>()
 
+const atorEquipe = (u: UsuarioSessao): Ator => ({ tipo: 'equipe', id: u.id, nome: u.nome })
 const STATUS = ['Novo', 'Em atendimento', 'Pedido gerado', 'Cancelado']
 
 function escopo(u: UsuarioSessao): { sql: string; args: unknown[] } | null {
@@ -72,6 +74,7 @@ rotasOrcamentos.put('/:id/status', exigirEquipe('orcamentos.atender'), async (c)
   if (!o) return c.json({ erro: 'Orçamento não encontrado.' }, 404)
   await c.env.DB.prepare('UPDATE orcamentos SET status = ?, atualizado_em = ? WHERE id = ?').bind(status, Date.now(), id).run()
   await c.env.DB.prepare('INSERT INTO auditoria (quando, usuario_id, acao, detalhe) VALUES (?, ?, ?, ?)').bind(Date.now(), c.get('usuario').id, 'orcamento.status', `orçamento ${id}: ${o.status} → ${status}`).run()
+  await registrarHistorico(c, id, atorEquipe(c.get('usuario')), 'status', `${o.status} → ${status}`)
   return c.json({ ok: true })
 })
 
@@ -91,6 +94,7 @@ rotasOrcamentos.put('/:id/liberar-edicao', exigirEquipe('orcamentos.atender'), a
   const { liberar } = (await c.req.json().catch(() => ({}))) as { liberar?: boolean }
   await c.env.DB.prepare('UPDATE orcamentos SET edicao_liberada = ?, atualizado_em = ? WHERE id = ?').bind(liberar ? 1 : 0, Date.now(), o.id).run()
   await c.env.DB.prepare('INSERT INTO auditoria (quando, usuario_id, acao, detalhe) VALUES (?, ?, ?, ?)').bind(Date.now(), c.get('usuario').id, 'orcamento.liberar_edicao', `orçamento ${o.id}: ${liberar ? 'liberada' : 'bloqueada'}`).run()
+  await registrarHistorico(c, o.id, atorEquipe(c.get('usuario')), liberar ? 'edicao_liberada' : 'edicao_bloqueada', liberar ? 'Equipe liberou o cliente para editar' : 'Equipe bloqueou a edição pelo cliente')
   return c.json({ ok: true })
 })
 
@@ -156,5 +160,25 @@ rotasOrcamentos.put('/:id/itens', exigirEquipe('orcamentos.atender'), async (c) 
   ).bind(arredondar2(subtotal), arredondar2(ipiTotal), arredondar2(subtotal + ipiTotal), qtdTotal, transp, obs, Date.now(), o.id))
   for (let k = 0; k < cmds.length; k += 100) await c.env.DB.batch(cmds.slice(k, k + 100))
   await c.env.DB.prepare('INSERT INTO auditoria (quando, usuario_id, acao, detalhe) VALUES (?, ?, ?, ?)').bind(Date.now(), c.get('usuario').id, 'orcamento.editar', `orçamento ${o.id}: itens editados pela equipe`).run()
+  await registrarHistorico(c, o.id, atorEquipe(c.get('usuario')), 'editado_equipe', 'Equipe editou os itens do orçamento', await fotografar(c, o.id))
   return c.json({ ok: true })
+})
+
+// Histórico completo (só quem tem permissão específica, normalmente o Administrador)
+rotasOrcamentos.get('/:id/historico', exigirEquipe('orcamentos.historico'), async (c) => {
+  const e = escopo(c.get('usuario'))
+  if (!e) return c.json({ erro: 'Você não tem permissão para isso.' }, 403)
+  const id = Number(c.req.param('id'))
+  const o = Number.isInteger(id) ? await c.env.DB.prepare(`SELECT o.id FROM orcamentos o JOIN clientes cl ON cl.id = o.cliente_id WHERE o.id = ?${e.sql}`).bind(id, ...e.args).first() : null
+  if (!o) return c.json({ erro: 'Orçamento não encontrado.' }, 404)
+  const r = await c.env.DB.prepare('SELECT id, quando, ator_tipo, ator_nome, acao, detalhe, snapshot FROM orcamento_historico WHERE orcamento_id = ? ORDER BY id').bind(id).all<{ id: number; quando: number; ator_tipo: string; ator_nome: string; acao: string; detalhe: string; snapshot: string }>()
+  let anterior: Snapshot | null = null
+  const eventos = r.results.map((x) => {
+    const snap = x.snapshot ? (JSON.parse(x.snapshot) as Snapshot) : null
+    const mudancas = snap ? diferenca(anterior, snap) : []
+    const resumo = snap ? { itens: snap.itens.length, total: snap.total } : null
+    if (snap) anterior = snap
+    return { id: x.id, quando: x.quando, ator_tipo: x.ator_tipo, ator_nome: x.ator_nome, acao: x.acao, detalhe: x.detalhe, mudancas, resumo }
+  })
+  return c.json({ eventos })
 })

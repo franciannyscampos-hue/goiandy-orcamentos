@@ -16,6 +16,7 @@ export const PERMISSOES = [
   'orcamentos.ver_todos',
   'orcamentos.ver_proprios',
   'orcamentos.atender',
+  'orcamentos.historico',
   'equipe.gerenciar'
 ] as const
 
