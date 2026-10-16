@@ -5,6 +5,8 @@ const raiz = document.getElementById('app')
 const dataBr = (iso) => (iso ? iso.split('-').reverse().join('/') : '')
 const num = (n) => String(n).replace('.', ',')
 const prazoTxt = (t) => (t.tipo === 'vista' ? 'À vista' : 'A prazo' + (t.prazo ? ' ' + t.prazo : ''))
+// Condição de pagamento em destaque: "À vista" ou "30/45/55 dias"
+const condicao = (t) => (t.tipo === 'vista' ? 'À vista' : t.prazo ? (/^[\d\s\/.,+-]+$/.test(t.prazo) ? t.prazo.trim() + ' dias' : t.prazo) : 'A prazo')
 
 function campo(rotulo, id, tipo, extra = {}) {
   return [el('label', { for: id }, rotulo), el('input', { id, name: id, type: tipo, required: true, ...extra })]
@@ -159,16 +161,17 @@ function painel(eu) {
     if (!h.params.item) window.scrollTo(0, 0)
   }
 
-  const irIndustria = (ind) => { window.location.hash = ind.tabelas.length === 1 ? '#/t/' + ind.tabelas[0].id : '#/i/' + ind.id }
+  const irIndustria = (ind) => { window.location.hash = '#/t/' + (ind.tabelas.find((t) => t.padrao) || ind.tabelas[0]).id }
 
   // ---------- banners que passam ----------
-  function carrossel(cat) {
-    const lista = cat.banners.filter((b) => cat.industrias.some((i) => i.id === b.industria_id))
+  function carrossel(cat, soIndustria = 0) {
+    const lista = cat.banners.filter((b) => (soIndustria ? b.industria_id === soIndustria : cat.industrias.some((i) => i.id === b.industria_id)))
     if (!lista.length) return ''
     let atual = 0
     const slides = el('div', { class: 'p-slides' }, ...lista.map((b) => {
       const ind = cat.industrias.find((i) => i.id === b.industria_id)
-      return el('button', { type: 'button', class: 'p-slide', 'aria-label': 'Abrir ' + ind.nome, onclick: () => irIndustria(ind) }, el('img', { src: '/api/portal/banner/' + b.id, alt: ind.nome, draggable: 'false' }))
+      const img = el('img', { src: '/api/portal/banner/' + b.id, alt: ind.nome, draggable: 'false' })
+      return soIndustria ? el('div', { class: 'p-slide', style: 'cursor:default' }, img) : el('button', { type: 'button', class: 'p-slide', 'aria-label': 'Abrir ' + ind.nome, onclick: () => irIndustria(ind) }, img)
     }))
     const pontos = el('div', { class: 'p-pontos' }, ...lista.map((_, k) => el('button', { type: 'button', 'aria-label': 'Banner ' + (k + 1), onclick: () => ir(k, true) })))
     function ir(k, manual) {
@@ -314,10 +317,24 @@ function painel(eu) {
     }
 
     carregar()
-    return el('div', { class: 'p-conteudo', style: 'padding:0' },
-      el('div', {}, el('a', { href: '#/' }, '← Indústrias'), el('h2', { style: 'margin-top:6px' }, ind.nome), el('div', { class: 'mudo pequeno' }, `${tab.nome} · ${prazoTxt(tab)}${tab.vencimento ? ' · válida até ' + dataBr(tab.vencimento) : ''}`)),
+    const logoInd = ind.tem_logo ? el('img', { class: 'p-ind-logo', src: '/api/portal/logo/' + ind.id, alt: ind.nome }) : ''
+    const seletorTabelas = el('div', { class: 'p-tabelas' }, ...ind.tabelas.map((t) =>
+      el('button', { type: 'button', class: 'p-tab' + (t.id === id ? ' ativa' : ''), 'aria-pressed': String(t.id === id), onclick: () => { if (t.id !== id) window.location.hash = '#/t/' + t.id } },
+        el('span', { class: 'p-tab-nome' }, t.nome), el('span', { class: 'p-tab-cond' }, condicao(t)), t.vencida ? el('span', { class: 'selo selo-alerta', style: 'margin:0' }, 'vencida') : '')))
+    return el('div', { class: 'p-pagina' },
+      el('a', { href: '#/' }, '← Início'),
+      el('div', { class: 'p-ind-cab' }, logoInd, el('div', {}, el('h2', { class: 'p-ind-nome' }, ind.nome),
+        el('div', { class: 'p-ind-chips' }, ind.tipo_frete ? el('span', {}, 'Frete ' + ind.tipo_frete) : '', cat.ver_precos && ind.pedido_minimo > 0 ? el('span', {}, 'Pedido mínimo ' + brl(ind.pedido_minimo)) : ''))),
+      carrossel(cat, ind.id),
+      el('section', { class: 'p-pagto' },
+        el('div', { class: 'p-pagto-rot' }, ind.tabelas.length > 1 ? 'Escolha a tabela de preço' : 'Tabela de preço'),
+        el('div', { class: 'p-pagto-atual' },
+          el('div', { class: 'p-pagto-tab' }, tab.nome),
+          el('div', { class: 'p-pagto-cond' }, el('span', {}, 'Condição de pagamento'), el('strong', {}, condicao(tab))),
+          tab.vencimento ? el('div', { class: 'p-pagto-val' }, (tab.vencida ? 'Venceu em ' : 'Válida até ') + dataBr(tab.vencimento)) : ''),
+        ind.tabelas.length > 1 ? seletorTabelas : ''),
       tab.vencida ? el('div', { class: 'p-aviso' }, `Esta tabela venceu em ${dataBr(tab.vencimento)}. Os preços podem ter mudado: confirme com a Goiandy antes de fechar o pedido.`) : '',
-      ind.informacoes ? el('div', { class: 'p-aviso', style: 'white-space:pre-line;background:#f2f4f7;color:var(--texto);border-color:var(--borda)' }, ind.informacoes) : '',
+      ind.informacoes ? el('section', { class: 'p-obs' }, el('div', { class: 'p-obs-titulo' }, 'Informações importantes desta indústria'), el('div', { class: 'p-obs-texto' }, ind.informacoes)) : '',
       el('div', { class: 'p-barra' }, campoBusca, selCat, chipNovos, chipPromo),
       grade, rodape)
   }

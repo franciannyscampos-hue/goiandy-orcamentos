@@ -84,3 +84,27 @@ body.portal { background: #f6f7f9; }
   .p-topo .marca { display: none; }
   .p-grade-logos { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 }
+
+.p-ind-cab { display: flex; align-items: center; gap: 16px; }
+.p-ind-logo { width: 96px; height: 64px; object-fit: contain; background: #fff; border: 1px solid var(--borda); border-radius: 10px; padding: 6px; }
+.p-ind-nome { margin: 0; font-size: 1.6rem; }
+.p-ind-chips { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
+.p-ind-chips span { background: #eef2ff; color: var(--destaque-escuro); border-radius: 999px; padding: 3px 12px; font-size: .85rem; font-weight: 500; }
+.p-pagto { background: var(--cartao); border: 1px solid var(--borda); border-left: 6px solid var(--destaque); border-radius: 12px; padding: 16px 20px; display: grid; gap: 12px; }
+.p-pagto-rot { font-size: .8rem; text-transform: uppercase; letter-spacing: .06em; color: var(--mudo); font-weight: 600; }
+.p-pagto-atual { display: flex; align-items: baseline; gap: 12px 32px; flex-wrap: wrap; }
+.p-pagto-tab { font-size: 1.25rem; font-weight: 700; }
+.p-pagto-cond { display: flex; align-items: baseline; gap: 10px; }
+.p-pagto-cond span { color: var(--mudo); font-size: .95rem; }
+.p-pagto-cond strong { font-size: 1.7rem; font-weight: 800; color: var(--destaque-escuro); }
+.p-pagto-val { color: var(--mudo); font-size: .95rem; }
+.p-tabelas { display: flex; gap: 10px; flex-wrap: wrap; }
+.p-tab { background: var(--fundo); color: var(--texto); border: 2px solid var(--borda); border-radius: 12px; padding: 10px 16px; display: grid; gap: 2px; text-align: left; font-weight: 400; }
+.p-tab:hover { background: #eef2ff; }
+.p-tab.ativa { border-color: var(--destaque); background: #eef2ff; }
+.p-tab-nome { font-size: .9rem; color: var(--mudo); }
+.p-tab-cond { font-size: 1.15rem; font-weight: 700; }
+.p-obs { background: #fffbeb; border: 1px solid #fcd34d; border-left: 6px solid #f59e0b; border-radius: 12px; padding: 16px 20px; }
+.p-obs-titulo { font-size: .85rem; text-transform: uppercase; letter-spacing: .06em; font-weight: 700; color: #92400e; margin-bottom: 8px; }
+.p-obs-texto { white-space: pre-line; font-size: 1.05rem; line-height: 1.55; color: #451a03; font-weight: 500; }
+@media (max-width: 640px) { .p-pagto-cond strong { font-size: 1.4rem; } .p-ind-nome { font-size: 1.3rem; } .p-ind-logo { width: 72px; height: 48px; } }
