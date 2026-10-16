@@ -95,3 +95,15 @@ button.link:hover { background: none; text-decoration: underline; }
 .erros-import { max-height: 260px; overflow-y: auto; margin-top: 10px; }
 input[type=file] { padding: 8px; }
 .dica { margin-top: 4px; font-size: .78rem; color: var(--mudo); line-height: 1.35; }
+
+.abas { display: flex; gap: 4px; }
+.aba { background: transparent; color: var(--mudo); border: 1px solid var(--borda); padding: 7px 14px; font-size: .92rem; }
+.aba:hover { background: var(--fundo); }
+.aba.ativa { background: #eef2ff; color: var(--destaque); border-color: #c7d2fe; }
+.selo-alerta { background: var(--erro-fundo); color: var(--erro); }
+.senha-caixa { flex: 1; font-size: 1.25rem; letter-spacing: .04em; padding: 12px 14px; background: var(--fundo); border: 1px dashed var(--borda); border-radius: 8px; user-select: all; }
+.grade-perfis { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
+.cartao-perfil { background: var(--cartao); border: 1px solid var(--borda); border-radius: 12px; padding: 16px; }
+.cartao-perfil p { margin: 6px 0 0; }
+.lista-perm { margin: 10px 0 0; padding-left: 18px; font-size: .88rem; line-height: 1.6; }
+.grupo-perm { display: grid; gap: 6px; margin-top: 12px; }

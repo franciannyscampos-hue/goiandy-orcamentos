@@ -3,6 +3,7 @@ import { el, api, pode } from './util.js'
 import { telaCadastro } from './cadastro.js'
 import { telas } from './telas.js'
 import { telaClientes } from './clientes.js'
+import { telaEquipe } from './equipe.js'
 
 const raiz = document.getElementById('app')
 
@@ -82,6 +83,7 @@ function painel(usuario) {
   const itensMenu = [{ id: 'inicio', rotulo: 'Início' }]
   if (pode(usuario, 'clientes.ver')) itensMenu.push({ id: 'clientes', rotulo: 'Clientes' })
   for (const [id, t] of Object.entries(telas)) if (pode(usuario, t.permVer)) itensMenu.push({ id, rotulo: t.titulo })
+  if (pode(usuario, 'equipe.gerenciar')) itensMenu.push({ id: 'equipe', rotulo: 'Equipe' })
   for (const i of itensMenu) menu.append(el('a', { href: '#/' + i.id, 'data-id': i.id }, i.rotulo))
 
   const sair = el('button', { type: 'button', class: 'link' }, 'Sair')
@@ -95,7 +97,7 @@ function painel(usuario) {
     const id = window.location.hash.replace('#/', '') || 'inicio'
     const valido = itensMenu.some((i) => i.id === id) ? id : 'inicio'
     for (const a of menu.querySelectorAll('a')) a.classList.toggle('ativo', a.dataset.id === valido)
-    conteudo.replaceChildren(valido === 'inicio' ? telaInicio(usuario) : valido === 'clientes' ? telaClientes(usuario) : telaCadastro(telas[valido], usuario))
+    conteudo.replaceChildren(valido === 'inicio' ? telaInicio(usuario) : valido === 'clientes' ? telaClientes(usuario) : valido === 'equipe' ? telaEquipe(usuario) : telaCadastro(telas[valido], usuario))
   }
 
   window.onhashchange = rotear

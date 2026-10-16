@@ -106,5 +106,18 @@ export const migracoes: Migracao[] = [
       )`,
       `CREATE INDEX IF NOT EXISTS idx_compradores_cliente ON compradores(cliente_id)`
     ]
+  },
+  {
+    id: '002_auditoria',
+    comandos: [
+      `CREATE TABLE IF NOT EXISTS auditoria (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        quando INTEGER NOT NULL,
+        usuario_id INTEGER,
+        acao TEXT NOT NULL,
+        detalhe TEXT NOT NULL DEFAULT ''
+      )`,
+      `CREATE INDEX IF NOT EXISTS idx_auditoria_quando ON auditoria(quando)`
+    ]
   }
 ]
