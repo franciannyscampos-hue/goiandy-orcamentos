@@ -96,7 +96,7 @@ export function telaTabelasPreco(usuario) {
       const esvaziar = el('button', { type: 'button', class: 'secundario', style: 'margin-right:auto' }, 'Remover todos os preços')
       esvaziar.addEventListener('click', async () => {
         if (!confirm(`Remover os preços dos ${t.n_itens} itens desta tabela? Os itens continuam cadastrados; depois você pode importar a planilha de novo.`)) return
-        const r = await api(`/tabelas/${t.id}/precos`, { metodo: 'DELETE' })
+        const r = await api(`/tabelas/${t.id}/precos`, { metodo: 'DELETE', corpo: {} })
         if (!r.ok) return erro.replaceChildren(el('div', { class: 'erro' }, r.dados.erro || 'Não foi possível remover.'))
         dialogo.close()
         listar()
