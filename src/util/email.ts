@@ -77,7 +77,7 @@ async function tokenDeAcesso(env: Bindings): Promise<string> {
     body: new URLSearchParams({ client_id: env.GOOGLE_CLIENT_ID!.trim(), client_secret: env.GOOGLE_CLIENT_SECRET!.trim(), refresh_token: env.GOOGLE_REFRESH_TOKEN!.trim(), grant_type: 'refresh_token' })
   })
   const d = (await r.json().catch(() => ({}))) as { access_token?: string; error?: string; error_description?: string }
-  if (!r.ok || !d.access_token) throw new Error(`Google recusou o acesso (${d.error_description || d.error || r.status}). Confira os segredos no Cloudflare. ${diagnostico(env)}`)
+  if (!r.ok || !d.access_token) throw new Error(`Google recusou o acesso (${[d.error, d.error_description].filter(Boolean).join(': ') || r.status}). Confira os segredos no Cloudflare. ${diagnostico(env)}`)
   return d.access_token
 }
 
