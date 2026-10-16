@@ -49,13 +49,13 @@ export function telaOrcamentos(usuario) {
     const aberto = o.status === 'Novo' || o.status === 'Em atendimento'
     const editavel = podeAtender && aberto
     // linhas em edição: item_id -> {referencia, descricao, qtd, passo?}
-    const linhas = itens.map((i) => ({ item_id: i.id, referencia: i.referencia, descricao: i.descricao, qtd: i.qtd, preco_unit: i.preco_unit, ipi: i.ipi, total_linha: i.total_linha }))
+    const linhas = itens.map((i) => ({ foto_id: i.foto_id, item_id: i.id, referencia: i.referencia, descricao: i.descricao, qtd: i.qtd, preco_unit: i.preco_unit, ipi: i.ipi, total_linha: i.total_linha }))
     let alterado = false
     const corpoTab = el('tbody')
     const totais = el('p')
     function pintar() {
       corpoTab.replaceChildren(...linhas.map((l) => el('tr', {},
-        el('td', {}, l.referencia), el('td', {}, l.descricao),
+        el('td', {}, l.foto_id ? el('img', { src: '/api/orcamentos/foto/' + l.foto_id, alt: '', style: 'width:48px;height:48px;object-fit:contain;border-radius:6px;background:#f3f4f6' }) : ''), el('td', {}, l.referencia), el('td', {}, l.descricao),
         el('td', {}, editavel ? el('input', { type: 'number', min: '0', value: String(l.qtd), style: 'width:80px', onchange: (e) => { l.qtd = Math.max(0, Math.round(Number(e.target.value) || 0)); alterado = true; pintar() } }) : String(l.qtd)),
         ...(o.ver_precos ? [el('td', {}, l.preco_unit != null ? brl(l.preco_unit) : '—'), el('td', {}, String(l.ipi || 0).replace('.', ',')), el('td', {}, l.preco_unit != null ? brl(l.qtd * l.preco_unit) : '—')] : []),
         editavel ? el('td', {}, el('button', { type: 'button', class: 'secundario botao-pequeno', onclick: () => { l.qtd = 0; alterado = true; pintar() } }, 'Remover')) : '')))
@@ -119,7 +119,7 @@ export function telaOrcamentos(usuario) {
         par('Transportadora', o.transportadora_texto), par('Frete', o.tipo_frete)),
       o.observacao_cliente ? el('p', {}, el('strong', {}, 'Observação do cliente: '), o.observacao_cliente) : '',
       el('div', { class: 'tabela-caixa' }, el('table', { class: 'tabela' },
-        el('thead', {}, el('tr', {}, ...['Ref.', 'Produto', 'Qtde', ...(o.ver_precos ? ['Unitário', 'IPI %', 'Total'] : []), ...(editavel ? [''] : [])].map((x) => el('th', {}, x)))),
+        el('thead', {}, el('tr', {}, ...['', 'Ref.', 'Produto', 'Qtde', ...(o.ver_precos ? ['Unitário', 'IPI %', 'Total'] : []), ...(editavel ? [''] : [])].map((x) => el('th', {}, x)))),
         corpoTab)),
       editavel ? el('div', {}, campoBuscaItem, resultados) : '',
       totais,
