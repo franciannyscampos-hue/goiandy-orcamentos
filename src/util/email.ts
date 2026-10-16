@@ -61,14 +61,23 @@ export function montarMime(de: string, nomeDe: string, m: MensagemEmail): string
 
 const urlBase64 = (s: string) => s.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
 
+// Descreve (sem revelar) como os segredos foram colados, para achar erro de cópia
+function diagnostico(env: Bindings): string {
+  const d = (v?: string) => (v ? `${v.length} caracteres${v !== v.trim() ? ', com espaço sobrando' : ''}` : 'vazio')
+  const id = (env.GOOGLE_CLIENT_ID ?? '').trim()
+  const sec = (env.GOOGLE_CLIENT_SECRET ?? '').trim()
+  const tok = (env.GOOGLE_REFRESH_TOKEN ?? '').trim()
+  return `[ID: ${d(env.GOOGLE_CLIENT_ID)}, termina em .apps.googleusercontent.com: ${id.endsWith('.apps.googleusercontent.com') ? 'sim' : 'NÃO'}, começa com ${id.slice(0, 6)}; chave: ${d(env.GOOGLE_CLIENT_SECRET)}, começa com GOCSPX-: ${sec.startsWith('GOCSPX-') ? 'sim' : 'NÃO'}, final ...${sec.slice(-2)}; token: ${d(env.GOOGLE_REFRESH_TOKEN)}, começa com 1//: ${tok.startsWith('1//') ? 'sim' : 'NÃO'}]`
+}
+
 async function tokenDeAcesso(env: Bindings): Promise<string> {
   const r = await fetch(env.GOOGLE_TOKEN_URL || 'https://oauth2.googleapis.com/token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({ client_id: env.GOOGLE_CLIENT_ID!, client_secret: env.GOOGLE_CLIENT_SECRET!, refresh_token: env.GOOGLE_REFRESH_TOKEN!, grant_type: 'refresh_token' })
+    body: new URLSearchParams({ client_id: env.GOOGLE_CLIENT_ID!.trim(), client_secret: env.GOOGLE_CLIENT_SECRET!.trim(), refresh_token: env.GOOGLE_REFRESH_TOKEN!.trim(), grant_type: 'refresh_token' })
   })
   const d = (await r.json().catch(() => ({}))) as { access_token?: string; error?: string; error_description?: string }
-  if (!r.ok || !d.access_token) throw new Error(`Google recusou o acesso (${d.error_description || d.error || r.status}). Gere um novo refresh token.`)
+  if (!r.ok || !d.access_token) throw new Error(`Google recusou o acesso (${d.error_description || d.error || r.status}). Confira os segredos no Cloudflare. ${diagnostico(env)}`)
   return d.access_token
 }
 
