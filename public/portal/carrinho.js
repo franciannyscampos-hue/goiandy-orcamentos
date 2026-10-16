@@ -143,6 +143,21 @@ export async function telaCarrinho(tabelaId, aoAtualizar) {
   return pagina
 }
 
+// Gera e baixa o PDF de um orçamento enviado (o cliente emite o próprio PDF quando quiser)
+export async function baixarOrcamentoPdf(id, botao) {
+  const txt = botao?.textContent
+  if (botao) { botao.disabled = true; botao.textContent = 'Gerando PDF...' }
+  try {
+    const r = await api('/portal/orcamentos/' + id)
+    if (!r.ok) throw new Error(r.dados.erro || 'Orçamento não encontrado.')
+    const d = r.dados
+    const blob = await gerarPdfOrcamento({ orcamento: d.orcamento, itens: d.itens, cliente: d.cliente, comprador: d.comprador, verPrecos: d.ver_precos,
+      urlFoto: (fid) => '/api/portal/foto/' + fid, urlLogoIndustria: d.orcamento.tem_logo ? '/api/portal/logo/' + d.orcamento.industria_id : null })
+    baixarPdf(blob, `Orcamento-${id}.pdf`)
+  } catch (err) { alert('Não foi possível gerar o PDF: ' + (err.message || err)) }
+  if (botao) { botao.disabled = false; botao.textContent = txt }
+}
+
 // ---------- orçamentos enviados ----------
 export async function telaOrcamentos() {
   const r = await api('/portal/orcamentos')
@@ -153,10 +168,10 @@ export async function telaOrcamentos() {
     el('h2', { class: 'p-titulo' }, 'Meus orçamentos'),
     lista.length ? '' : el('p', { class: 'mudo' }, 'Você ainda não enviou nenhum orçamento.'),
     lista.length ? el('div', { class: 'tabela-caixa' }, el('table', { class: 'tabela' },
-      el('thead', {}, el('tr', {}, ...['Nº', 'Data', 'Indústria', 'Tabela', 'Unid.', ...(ver ? ['Total'] : []), 'Situação'].map((x) => el('th', {}, x)))),
+      el('thead', {}, el('tr', {}, ...['Nº', 'Data', 'Indústria', 'Tabela', 'Unid.', ...(ver ? ['Total'] : []), 'Situação', ''].map((x) => el('th', {}, x)))),
       el('tbody', {}, ...lista.map((o) => el('tr', { class: 'clicavel', onclick: () => { window.location.hash = '#/orcamentos/' + o.id } },
         el('td', {}, '#' + o.id), el('td', {}, dataHoraBr(o.enviado_em)), el('td', {}, o.industria), el('td', {}, o.tabela_nome), el('td', {}, String(o.qtd_total)),
-        ...(ver ? [el('td', {}, brl(o.total))] : []), el('td', {}, seloSituacao(o.status))))))) : '')
+        ...(ver ? [el('td', {}, brl(o.total))] : []), el('td', {}, seloSituacao(o.status)), el('td', { class: 'acao' }, el('button', { type: 'button', class: 'secundario botao-pequeno', onclick: (e) => { e.stopPropagation(); baixarOrcamentoPdf(o.id, e.target) } }, 'PDF'))))))) : '')
 }
 
 export async function telaOrcamento(id, params = {}) {
@@ -175,15 +190,7 @@ export async function telaOrcamento(id, params = {}) {
     o.transportadora_texto ? el('p', {}, el('strong', {}, 'Transportadora: '), o.transportadora_texto) : '',
     o.observacao_cliente ? el('p', {}, el('strong', {}, 'Observação: '), o.observacao_cliente) : '',
     el('div', { class: 'botoes', style: 'justify-content:flex-start' },
-      el('button', { type: 'button', class: 'secundario', onclick: async (e) => {
-        const b = e.target; b.disabled = true; const txt = b.textContent; b.textContent = 'Gerando PDF...'
-        try {
-          const blob = await gerarPdfOrcamento({ orcamento: o, itens, cliente: r.dados.cliente, comprador: r.dados.comprador, verPrecos: ver,
-            urlFoto: (fid) => '/api/portal/foto/' + fid, urlLogoIndustria: o.tem_logo ? '/api/portal/logo/' + o.industria_id : null })
-          baixarPdf(blob, `Orcamento-${o.id}.pdf`)
-        } catch (err) { alert('Não foi possível gerar o PDF: ' + (err.message || err)) }
-        b.disabled = false; b.textContent = txt
-      } }, 'Baixar PDF'),
+      el('button', { type: 'button', class: 'secundario', onclick: (e) => baixarOrcamentoPdf(o.id, e.target) }, 'Baixar PDF'),
       o.edicao_liberada ? el('button', { type: 'button', onclick: async (e) => {
         e.target.disabled = true
         const c = await api(`/portal/orcamentos/${o.id}/reabrir`, { metodo: 'POST', corpo: {} })

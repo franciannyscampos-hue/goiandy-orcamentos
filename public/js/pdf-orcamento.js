@@ -2,6 +2,8 @@
 // Os dados vêm sempre do banco (via API); o PDF é só a apresentação.
 import { PDFDocument, StandardFonts, rgb } from './vendor/pdf.js'
 
+// Texto fixo do fim do PDF (futuramente editável pelo painel)
+const TEXTO_FINAL = 'Informamos que não realizamos a troca de mercadorias que apresentem quebras decorrentes do transporte.'
 const AZUL = rgb(0.008, 0.149, 0.29)
 const CINZA = rgb(0.93, 0.94, 0.95)
 const LINHA = rgb(0.75, 0.77, 0.8)
@@ -113,8 +115,7 @@ export async function gerarPdfOrcamento(dados) {
   function cabecalho() {
     pagina = pdf.addPage([W, H]); y = H - M
     if (imgGoiandy) { const h = 58, w = (imgGoiandy.width / imgGoiandy.height) * h; pagina.drawImage(imgGoiandy, { x: M, y: y - h, width: w, height: h }) }
-    texto('GOIANDY REPRESENTAÇÕES', 150, y - 22, { tam: 13, f: negrito })
-    quebrar('Por favor acusar recebimento deste orçamento, prezado cliente não fazemos trocas de mercadorias quebradas pela transportadora.', fonte, 8, 250).forEach((l, k) => texto(l, 150, y - 36 - k * 10))
+    texto('GOIANDY REPRESENTAÇÕES', 150, y - 32, { tam: 14, f: negrito })
     if (imgInd) { const mh = 56, mw = 120; const [iw, ih] = imgInd._wh; const f = Math.min(mw / iw, mh / ih); pagina.drawImage(imgInd, { x: W - M - iw * f, y: y - mh + (mh - ih * f) / 2, width: iw * f, height: ih * f }) }
     y -= 70
   }
@@ -200,7 +201,7 @@ export async function gerarPdfOrcamento(dados) {
   // ---------- observação e assinatura ----------
   if (y - 110 < M) cabecalho()
   texto('Observação', M, y, { tam: 9, f: negrito }); y -= 12
-  const obs = (o.observacao_cliente ? 'Cliente: ' + o.observacao_cliente + '. ' : '') + 'Por favor acusar recebimento deste orçamento, prezado cliente não fazemos trocas de mercadorias quebradas pela transportadora.'
+  const obs = (o.observacao_cliente ? 'Cliente: ' + o.observacao_cliente + '. ' : '') + TEXTO_FINAL
   quebrar(obs, fonte, 8, W - 2 * M, 8).forEach((l) => { texto(l, M, y, { tam: 8 }); y -= 10 })
   y -= 28
   pagina.drawLine({ start: { x: W / 2 - 110, y }, end: { x: W / 2 + 110, y }, thickness: 0.6, color: PRETO })
