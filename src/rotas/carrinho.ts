@@ -216,3 +216,32 @@ rotasCarrinho.get('/orcamentos/:id', exigirComprador(), async (c) => {
   const orc = { id: o.id, status: o.status, industria: o.industria, tabela_nome: o.tabela_nome, tabela_tipo: o.tabela_tipo, tabela_prazo: o.tabela_prazo, transportadora_texto: o.transportadora_texto, observacao_cliente: o.observacao_cliente, enviado_em: o.enviado_em, qtd_total: o.qtd_total, ...(ver ? { subtotal: o.subtotal, ipi_total: o.ipi_total, total: o.total } : {}) }
   return c.json({ ver_precos: ver, orcamento: orc, itens: itens.results.map((x) => (ver ? x : { id: x.id, referencia: x.referencia, descricao: x.descricao, qtd: x.qtd })) })
 })
+
+// Copia um orçamento já enviado para um carrinho novo (soma ao carrinho da mesma tabela, se já existir)
+rotasCarrinho.post('/orcamentos/:id/copiar', exigirComprador(), async (c) => {
+  const eu = c.get('comprador')
+  const id = Number(c.req.param('id'))
+  const o = Number.isInteger(id)
+    ? await c.env.DB.prepare("SELECT id, tabela_id FROM orcamentos WHERE id = ? AND comprador_id = ? AND status <> 'carrinho'").bind(id, eu.id).first<{ id: number; tabela_id: number }>()
+    : null
+  if (!o) return c.json({ erro: 'Orçamento não encontrado.' }, 404)
+  const t = await tabelaLiberada(c, eu.cliente_id, o.tabela_id)
+  if (!t) return c.json({ erro: 'Esta tabela não está mais disponível para você.' }, 404)
+  const linhas = await c.env.DB.prepare('SELECT item_id, qtd FROM orcamento_itens WHERE orcamento_id = ?').bind(id).all<{ item_id: number; qtd: number }>()
+  const cartId = await garantirCarrinho(c, eu, t)
+  const stmts: D1PreparedStatement[] = []
+  let copiados = 0
+  for (const l of linhas.results) {
+    const item = await c.env.DB.prepare(
+      `SELECT it.id, it.qtd_caixa, it.qtd_minima, it.nao_abre_caixa FROM precos p JOIN itens it ON it.id = p.item_id WHERE p.tabela_id = ? AND it.id = ? AND ${ITEM_VISIVEL}`
+    ).bind(t.id, l.item_id).first<{ id: number; qtd_caixa: number; qtd_minima: number; nao_abre_caixa: number }>()
+    if (!item) continue
+    const passo = passoQtd(item)
+    const qtd = Math.ceil(l.qtd / passo) * passo
+    stmts.push(c.env.DB.prepare('INSERT INTO orcamento_itens (orcamento_id, item_id, qtd) VALUES (?, ?, ?) ON CONFLICT(orcamento_id, item_id) DO UPDATE SET qtd = qtd + excluded.qtd').bind(cartId, item.id, qtd))
+    copiados++
+  }
+  for (let k = 0; k < stmts.length; k += 90) await c.env.DB.batch(stmts.slice(k, k + 90))
+  await c.env.DB.prepare('UPDATE orcamentos SET atualizado_em = ? WHERE id = ?').bind(Date.now(), cartId).run()
+  return c.json({ ok: true, tabela_id: t.id, copiados, ignorados: linhas.results.length - copiados })
+})

@@ -171,5 +171,14 @@ export async function telaOrcamento(id, params = {}) {
       el('tbody', {}, ...itens.map((i) => el('tr', {}, el('td', {}, i.referencia), el('td', {}, i.descricao), el('td', {}, String(i.qtd)), ...(ver ? [el('td', {}, brl(i.preco_unit)), el('td', {}, num(i.ipi || 0)), el('td', {}, brl(i.total_linha))] : [])))))),
     ver ? el('div', { class: 'cart-resumo' }, el('div', {}, el('span', {}, 'Total sem impostos'), el('strong', {}, brl(o.subtotal))), o.ipi_total > 0 ? el('div', {}, el('span', {}, 'IPI'), el('strong', {}, brl(o.ipi_total))) : '', el('div', { class: 'cart-final' }, el('span', {}, 'Total final'), el('strong', {}, brl(o.total)))) : '',
     o.transportadora_texto ? el('p', {}, el('strong', {}, 'Transportadora: '), o.transportadora_texto) : '',
-    o.observacao_cliente ? el('p', {}, el('strong', {}, 'Observação: '), o.observacao_cliente) : '')
+    o.observacao_cliente ? el('p', {}, el('strong', {}, 'Observação: '), o.observacao_cliente) : '',
+    el('div', { class: 'botoes', style: 'justify-content:flex-start' },
+      el('button', { type: 'button', onclick: async (e) => {
+        e.target.disabled = true
+        const c = await api(`/portal/orcamentos/${o.id}/copiar`, { metodo: 'POST', corpo: {} })
+        if (!c.ok) { e.target.disabled = false; return alert(c.dados.erro || 'Não foi possível copiar.') }
+        if (c.dados.ignorados) alert(`${c.dados.ignorados} produto(s) não estão mais disponíveis e ficaram de fora.`)
+        window.location.hash = '#/carrinho/' + c.dados.tabela_id
+      } }, 'Copiar para um novo carrinho')),
+    el('p', { class: 'mudo pequeno' }, 'Orçamento enviado não pode ser alterado. Copie para um novo carrinho para repetir os itens e acrescentar outros.'))
 }
