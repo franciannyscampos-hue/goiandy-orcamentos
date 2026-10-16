@@ -45,6 +45,53 @@ export function telaOrcamentos(usuario) {
     const sel = el('select', {}, ...STATUS.map((s) => el('option', { value: s, selected: s === o.status }, s)))
     const msg = el('div')
     const podeAtender = pode(usuario, 'orcamentos.atender')
+    const aberto = o.status === 'Novo' || o.status === 'Em atendimento'
+    const editavel = podeAtender && aberto
+    // linhas em edição: item_id -> {referencia, descricao, qtd, passo?}
+    const linhas = itens.map((i) => ({ item_id: i.id, referencia: i.referencia, descricao: i.descricao, qtd: i.qtd, preco_unit: i.preco_unit, ipi: i.ipi, total_linha: i.total_linha }))
+    let alterado = false
+    const corpoTab = el('tbody')
+    const totais = el('p')
+    function pintar() {
+      corpoTab.replaceChildren(...linhas.map((l) => el('tr', {},
+        el('td', {}, l.referencia), el('td', {}, l.descricao),
+        el('td', {}, editavel ? el('input', { type: 'number', min: '0', value: String(l.qtd), style: 'width:80px', onchange: (e) => { l.qtd = Math.max(0, Math.round(Number(e.target.value) || 0)); alterado = true; pintar() } }) : String(l.qtd)),
+        ...(o.ver_precos ? [el('td', {}, l.preco_unit != null ? brl(l.preco_unit) : '—'), el('td', {}, String(l.ipi || 0).replace('.', ',')), el('td', {}, l.preco_unit != null ? brl(l.qtd * l.preco_unit) : '—')] : []),
+        editavel ? el('td', {}, el('button', { type: 'button', class: 'secundario botao-pequeno', onclick: () => { l.qtd = 0; alterado = true; pintar() } }, 'Remover')) : '')))
+      for (const tr of [...corpoTab.children]) { const q = tr.querySelector('input'); if (q && q.value === '0') tr.classList.add('inativo') }
+      totais.replaceChildren(...(o.ver_precos ? [alterado ? 'Total estimado (será recalculado ao salvar)' : `Subtotal ${brl(o.subtotal)}` + (o.ipi_total > 0 ? ` · IPI ${brl(o.ipi_total)}` : '') + ' · ', alterado ? '' : el('strong', {}, 'Total ' + brl(o.total))] : [el('span', { class: 'mudo' }, 'Cliente sem permissão de ver preços.')]))
+    }
+    pintar()
+
+    // acrescentar item
+    const campoBuscaItem = el('input', { type: 'search', placeholder: 'Acrescentar item: digite referência ou nome...' })
+    const resultados = el('div')
+    let tb
+    campoBuscaItem.addEventListener('input', () => {
+      clearTimeout(tb)
+      const q = campoBuscaItem.value.trim()
+      if (q.length < 2) return resultados.replaceChildren()
+      tb = setTimeout(async () => {
+        const x = await api(`/orcamentos/${id}/buscar-item?q=${encodeURIComponent(q)}`)
+        if (!x.ok) return
+        resultados.replaceChildren(...x.dados.itens.map((it) => el('button', { type: 'button', class: 'secundario botao-pequeno', style: 'display:block;margin:4px 0;text-align:left', onclick: () => {
+          const ex = linhas.find((l) => l.item_id === it.id)
+          if (ex) ex.qtd += it.passo
+          else linhas.push({ item_id: it.id, referencia: it.referencia, descricao: it.descricao, qtd: it.passo, preco_unit: null, ipi: 0 })
+          alterado = true; pintar(); resultados.replaceChildren(); campoBuscaItem.value = ''
+        } }, `${it.referencia} — ${it.descricao} (+${it.passo})`)))
+      }, 300)
+    })
+    const salvarItens = el('button', { type: 'button', onclick: async () => {
+      const x = await api(`/orcamentos/${id}/itens`, { metodo: 'PUT', corpo: { itens: linhas.map((l) => ({ item_id: l.item_id, qtd: l.qtd })) } })
+      if (!x.ok) return msg.replaceChildren(el('div', { class: 'erro' }, x.dados.erro || 'Erro ao salvar itens.'))
+      dialogo.close(); carregar(); detalhe(id)
+    } }, 'Salvar alterações nos itens')
+    const liberar = el('button', { type: 'button', class: 'secundario', onclick: async () => {
+      const x = await api(`/orcamentos/${id}/liberar-edicao`, { metodo: 'PUT', corpo: { liberar: !o.edicao_liberada } })
+      if (!x.ok) return msg.replaceChildren(el('div', { class: 'erro' }, x.dados.erro || 'Erro.'))
+      dialogo.close(); detalhe(id)
+    } }, o.edicao_liberada ? 'Bloquear edição pelo cliente' : 'Liberar edição para o cliente')
     const salvar = el('button', { type: 'button', onclick: async () => {
       const x = await api(`/orcamentos/${id}/status`, { metodo: 'PUT', corpo: { status: sel.value } })
       if (!x.ok) return msg.replaceChildren(el('div', { class: 'erro' }, x.dados.erro || 'Erro ao salvar.'))
@@ -54,16 +101,18 @@ export function telaOrcamentos(usuario) {
     dialogo.append(
       el('h3', {}, `Orçamento nº ${o.id} · ${o.industria}`),
       el('div', { class: 'mudo pequeno' }, `${o.tabela_nome} · enviado em ${dh(o.enviado_em)}`),
+      o.edicao_liberada ? el('div', { class: 'p-aviso' }, 'Edição liberada: o cliente pode reabrir este orçamento e alterar os itens.') : '',
       el('div', { class: 'grade-info' },
         par('Cliente', o.razao_social), par('Fantasia', o.nome_fantasia), par('CNPJ', o.cnpj), par('IE', o.inscricao_estadual),
         par('Cidade', [o.cidade, o.uf].filter(Boolean).join(' / ')), par('Telefone', o.telefone), par('Comprador', o.comprador), par('E-mail', o.comprador_email), par('Vendedor', o.vendedor),
         par('Transportadora', o.transportadora_texto), par('Frete', o.tipo_frete)),
       o.observacao_cliente ? el('p', {}, el('strong', {}, 'Observação do cliente: '), o.observacao_cliente) : '',
       el('div', { class: 'tabela-caixa' }, el('table', { class: 'tabela' },
-        el('thead', {}, el('tr', {}, ...['Ref.', 'Produto', 'Qtde', ...(o.ver_precos ? ['Unitário', 'IPI %', 'Total'] : [])].map((x) => el('th', {}, x)))),
-        el('tbody', {}, ...itens.map((i) => el('tr', {}, el('td', {}, i.referencia), el('td', {}, i.descricao), el('td', {}, String(i.qtd)),
-          ...(o.ver_precos ? [el('td', {}, brl(i.preco_unit)), el('td', {}, String(i.ipi || 0).replace('.', ',')), el('td', {}, brl(i.total_linha))] : [])))))),
-      o.ver_precos ? el('p', {}, `Subtotal ${brl(o.subtotal)}` + (o.ipi_total > 0 ? ` · IPI ${brl(o.ipi_total)}` : ''), ' · ', el('strong', {}, 'Total ' + brl(o.total))) : el('p', { class: 'mudo' }, 'Cliente sem permissão de ver preços: valores não foram calculados no envio.'),
+        el('thead', {}, el('tr', {}, ...['Ref.', 'Produto', 'Qtde', ...(o.ver_precos ? ['Unitário', 'IPI %', 'Total'] : []), ...(editavel ? [''] : [])].map((x) => el('th', {}, x)))),
+        corpoTab)),
+      editavel ? el('div', {}, campoBuscaItem, resultados) : '',
+      totais,
+      editavel ? el('div', { class: 'botoes', style: 'justify-content:flex-start' }, salvarItens, liberar) : '',
       podeAtender ? el('div', { class: 'campo' }, el('label', {}, 'Situação'), sel) : el('p', {}, 'Situação: ', selo(o.status)),
       msg,
       el('div', { class: 'botoes' }, el('button', { type: 'button', class: 'secundario', onclick: () => dialogo.close() }, 'Fechar'), podeAtender ? salvar : ''))

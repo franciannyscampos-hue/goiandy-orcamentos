@@ -117,7 +117,8 @@ export async function telaCarrinho(tabelaId, aoAtualizar) {
 
     pagina.replaceChildren(
       el('a', { href: '#/carrinho' }, '← Carrinhos'),
-      el('h2', { class: 'p-titulo' }, `Orçamento — ${t.industria}`),
+      el('h2', { class: 'p-titulo' }, d.reaberto ? `Editando o orçamento nº ${d.reaberto} — ${t.industria}` : `Orçamento — ${t.industria}`),
+      d.reaberto ? el('div', { class: 'p-aviso' }, `Ao enviar, o orçamento nº ${d.reaberto} é atualizado com os itens abaixo (preços da tabela atual).`) : '',
       el('section', { class: 'p-pagto' },
         el('div', { class: 'p-pagto-atual' }, el('div', { class: 'p-pagto-tab' }, t.nome), el('div', { class: 'p-pagto-cond' }, el('span', {}, 'Condição de pagamento'), el('strong', {}, condicao(t))), t.tipo_frete ? el('div', { class: 'p-pagto-val' }, 'Frete ' + t.tipo_frete) : '')),
       el('div', { class: 'cart-lista' }, ...linhas),
@@ -173,12 +174,18 @@ export async function telaOrcamento(id, params = {}) {
     o.transportadora_texto ? el('p', {}, el('strong', {}, 'Transportadora: '), o.transportadora_texto) : '',
     o.observacao_cliente ? el('p', {}, el('strong', {}, 'Observação: '), o.observacao_cliente) : '',
     el('div', { class: 'botoes', style: 'justify-content:flex-start' },
-      el('button', { type: 'button', onclick: async (e) => {
+      o.edicao_liberada ? el('button', { type: 'button', onclick: async (e) => {
+        e.target.disabled = true
+        const c = await api(`/portal/orcamentos/${o.id}/reabrir`, { metodo: 'POST', corpo: {} })
+        if (!c.ok) { e.target.disabled = false; return alert(c.dados.erro || 'Não foi possível abrir para edição.') }
+        window.location.hash = '#/carrinho/' + c.dados.tabela_id
+      } }, 'Editar este orçamento') : '',
+      el('button', { type: 'button', class: o.edicao_liberada ? 'secundario' : '', onclick: async (e) => {
         e.target.disabled = true
         const c = await api(`/portal/orcamentos/${o.id}/copiar`, { metodo: 'POST', corpo: {} })
         if (!c.ok) { e.target.disabled = false; return alert(c.dados.erro || 'Não foi possível copiar.') }
         if (c.dados.ignorados) alert(`${c.dados.ignorados} produto(s) não estão mais disponíveis e ficaram de fora.`)
         window.location.hash = '#/carrinho/' + c.dados.tabela_id
       } }, 'Copiar para um novo carrinho')),
-    el('p', { class: 'mudo pequeno' }, 'Orçamento enviado não pode ser alterado. Copie para um novo carrinho para repetir os itens e acrescentar outros.'))
+    el('p', { class: 'mudo pequeno' }, o.edicao_liberada ? 'A Goiandy liberou a edição deste orçamento. Ao editar, ele volta para o carrinho e mantém o mesmo número quando você reenviar.' : 'Orçamento enviado só pode ser alterado se a Goiandy liberar. Você pode copiar para um novo carrinho para repetir os itens e acrescentar outros.'))
 }

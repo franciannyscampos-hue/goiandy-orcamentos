@@ -277,5 +277,9 @@ export const migracoes: Migracao[] = [
         UNIQUE (orcamento_id, item_id)
       )`
     ]
+  },
+  {
+    id: '008_orcamento_edicao',
+    comandos: [`ALTER TABLE orcamentos ADD COLUMN edicao_liberada INTEGER NOT NULL DEFAULT 0`]
   }
 ]

@@ -102,7 +102,8 @@ rotasCarrinho.get('/carrinho/:tabelaId', exigirComprador(), async (c) => {
   if (!t) return c.json({ erro: 'Tabela não encontrada.' }, 404)
   const cartId = await acharCarrinho(c, eu.id, t.id)
   const v = publico(await visaoCarrinho(c, cartId, t, eu.ver_precos))
-  return c.json({ tabela: dadosTabela(t), ver_precos: eu.ver_precos, ...v })
+  const env = cartId ? await c.env.DB.prepare('SELECT enviado_em FROM orcamentos WHERE id = ?').bind(cartId).first<{ enviado_em: number }>() : null
+  return c.json({ tabela: dadosTabela(t), ver_precos: eu.ver_precos, reaberto: env && env.enviado_em > 0 ? cartId : null, ...v })
 })
 
 // Define a quantidade de um item (0 tira do carrinho)
@@ -213,7 +214,7 @@ rotasCarrinho.get('/orcamentos/:id', exigirComprador(), async (c) => {
   if (!o) return c.json({ erro: 'Orçamento não encontrado.' }, 404)
   const itens = await c.env.DB.prepare('SELECT item_id AS id, referencia, descricao, qtd, preco_unit, ipi, promocao, total_linha FROM orcamento_itens WHERE orcamento_id = ? ORDER BY id').bind(id).all<Record<string, unknown>>()
   const ver = eu.ver_precos
-  const orc = { id: o.id, status: o.status, industria: o.industria, tabela_nome: o.tabela_nome, tabela_tipo: o.tabela_tipo, tabela_prazo: o.tabela_prazo, transportadora_texto: o.transportadora_texto, observacao_cliente: o.observacao_cliente, enviado_em: o.enviado_em, qtd_total: o.qtd_total, ...(ver ? { subtotal: o.subtotal, ipi_total: o.ipi_total, total: o.total } : {}) }
+  const orc = { id: o.id, status: o.status, industria: o.industria, tabela_nome: o.tabela_nome, tabela_tipo: o.tabela_tipo, tabela_prazo: o.tabela_prazo, transportadora_texto: o.transportadora_texto, observacao_cliente: o.observacao_cliente, enviado_em: o.enviado_em, qtd_total: o.qtd_total, edicao_liberada: !!o.edicao_liberada && (o.status === 'Novo' || o.status === 'Em atendimento'), ...(ver ? { subtotal: o.subtotal, ipi_total: o.ipi_total, total: o.total } : {}) }
   return c.json({ ver_precos: ver, orcamento: orc, itens: itens.results.map((x) => (ver ? x : { id: x.id, referencia: x.referencia, descricao: x.descricao, qtd: x.qtd })) })
 })
 
@@ -244,4 +245,20 @@ rotasCarrinho.post('/orcamentos/:id/copiar', exigirComprador(), async (c) => {
   for (let k = 0; k < stmts.length; k += 90) await c.env.DB.batch(stmts.slice(k, k + 90))
   await c.env.DB.prepare('UPDATE orcamentos SET atualizado_em = ? WHERE id = ?').bind(Date.now(), cartId).run()
   return c.json({ ok: true, tabela_id: t.id, copiados, ignorados: linhas.results.length - copiados })
+})
+
+// O comprador reabre para edição um orçamento que a equipe liberou. Vira carrinho de novo e mantém o mesmo número ao reenviar.
+rotasCarrinho.post('/orcamentos/:id/reabrir', exigirComprador(), async (c) => {
+  const eu = c.get('comprador')
+  const id = Number(c.req.param('id'))
+  const o = Number.isInteger(id)
+    ? await c.env.DB.prepare("SELECT id, tabela_id, status, edicao_liberada FROM orcamentos WHERE id = ? AND comprador_id = ? AND status IN ('Novo','Em atendimento')").bind(id, eu.id).first<{ id: number; tabela_id: number; edicao_liberada: number }>()
+    : null
+  if (!o || !o.edicao_liberada) return c.json({ erro: 'Este orçamento não está liberado para edição. Peça à Goiandy para liberar.' }, 403)
+  if (await acharCarrinho(c, eu.id, o.tabela_id)) return c.json({ erro: 'Você já tem um carrinho aberto desta tabela. Envie ou esvazie esse carrinho antes de editar o orçamento.' }, 409)
+  const t = await tabelaLiberada(c, eu.cliente_id, o.tabela_id)
+  if (!t) return c.json({ erro: 'Esta tabela não está mais disponível para você.' }, 404)
+  await c.env.DB.prepare("UPDATE orcamentos SET status = 'carrinho', edicao_liberada = 0, atualizado_em = ? WHERE id = ? AND status IN ('Novo','Em atendimento')").bind(Date.now(), id).run()
+  await c.env.DB.prepare('INSERT INTO auditoria (quando, usuario_id, acao, detalhe) VALUES (?, ?, ?, ?)').bind(Date.now(), null, 'orcamento.reabrir', `orçamento ${id} reaberto pelo comprador ${eu.email}`).run()
+  return c.json({ ok: true, tabela_id: o.tabela_id })
 })
