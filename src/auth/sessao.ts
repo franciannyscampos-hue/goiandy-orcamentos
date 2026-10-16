@@ -1,6 +1,6 @@
 import type { Context, MiddlewareHandler } from 'hono'
 import { deleteCookie, getCookie, setCookie } from 'hono/cookie'
-import type { Bindings, UsuarioSessao, Variaveis } from '../types'
+import type { Bindings, CompradorSessao, UsuarioSessao, Variaveis } from '../types'
 import { sha256Hex, tokenAleatorio } from './crypto'
 
 const NOME_COOKIE = 'sid'
@@ -72,6 +72,54 @@ export function exigirEquipe(permissao?: string): MiddlewareHandler<{ Bindings: 
       return c.json({ erro: 'Você não tem permissão para isso.' }, 403)
     }
     c.set('usuario', usuario)
+    await next()
+  }
+}
+
+// ---------- Portal do cliente (compradores) ----------
+const COOKIE_COMPRADOR = 'pid'
+const DURACAO_COMPRADOR_MS = 8 * 60 * 60 * 1000 // 8 horas
+
+export async function criarSessaoComprador(c: Ctx, compradorId: number): Promise<void> {
+  const token = tokenAleatorio()
+  const agora = Date.now()
+  await c.env.DB.prepare('INSERT INTO sessoes (id, tipo, usuario_id, expira_em, criado_em) VALUES (?, ?, ?, ?, ?)')
+    .bind(await sha256Hex(token), 'comprador', compradorId, agora + DURACAO_COMPRADOR_MS, agora)
+    .run()
+  setCookie(c, COOKIE_COMPRADOR, token, { httpOnly: true, secure: true, sameSite: 'Lax', path: '/', maxAge: DURACAO_COMPRADOR_MS / 1000 })
+}
+
+export async function encerrarSessaoComprador(c: Ctx): Promise<void> {
+  const token = getCookie(c, COOKIE_COMPRADOR)
+  if (token) await c.env.DB.prepare('DELETE FROM sessoes WHERE id = ?').bind(await sha256Hex(token)).run()
+  deleteCookie(c, COOKIE_COMPRADOR, { path: '/' })
+}
+
+export async function lerCompradorDaSessao(c: Ctx): Promise<CompradorSessao | null> {
+  const token = getCookie(c, COOKIE_COMPRADOR)
+  if (!token) return null
+  const l = await c.env.DB.prepare(
+    `SELECT b.id, b.nome, b.email, b.cliente_id, b.deve_trocar_senha, cl.razao_social, cl.nome_fantasia, cl.ver_precos
+       FROM sessoes s
+       JOIN compradores b ON b.id = s.usuario_id
+       JOIN clientes cl ON cl.id = b.cliente_id
+      WHERE s.id = ? AND s.tipo = 'comprador' AND s.expira_em > ? AND b.ativo = 1 AND cl.ativo = 1`
+  )
+    .bind(await sha256Hex(token), Date.now())
+    .first<{ id: number; nome: string; email: string; cliente_id: number; deve_trocar_senha: number; razao_social: string; nome_fantasia: string; ver_precos: number }>()
+  if (!l) return null
+  return { id: l.id, nome: l.nome, email: l.email, cliente_id: l.cliente_id, cliente_nome: l.nome_fantasia || l.razao_social, ver_precos: l.ver_precos === 1, deve_trocar_senha: l.deve_trocar_senha === 1 }
+}
+
+// Use nas rotas do portal. O cliente (CNPJ) vem sempre da sessão, nunca do pedido.
+export function exigirComprador(): MiddlewareHandler<{ Bindings: Bindings; Variables: Variaveis }> {
+  return async (c, next) => {
+    const comprador = await lerCompradorDaSessao(c)
+    if (!comprador) return c.json({ erro: 'Faça login para continuar.' }, 401)
+    if (comprador.deve_trocar_senha && !c.req.path.endsWith('/trocar-senha')) {
+      return c.json({ erro: 'Troque a senha provisória antes de continuar.', trocar_senha: true }, 403)
+    }
+    c.set('comprador', comprador)
     await next()
   }
 }

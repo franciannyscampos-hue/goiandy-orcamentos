@@ -1,6 +1,7 @@
 import { Hono } from 'hono'
 import type { Bindings, Variaveis } from '../types'
 import { exigirEquipe } from '../auth/sessao'
+import { gerarHashSenha, senhaProvisoria } from '../auth/crypto'
 import { limpar, type Campo } from './cadastro-generico'
 import { cnpjValido, soDigitos } from '../util/validar'
 import { consultarCnpj } from '../util/cnpj-consulta'
@@ -188,6 +189,20 @@ rotasClientes.put('/compradores/:cid', exigirEquipe('clientes.editar'), async (c
   }
   const item = await c.env.DB.prepare(`SELECT ${COLUNAS_COMPRADOR} FROM compradores WHERE id = ?`).bind(cid).first()
   return c.json({ item })
+})
+
+// Gera a senha provisória do comprador (aparece uma única vez; o comprador troca no primeiro acesso)
+rotasClientes.post('/compradores/:cid/senha', exigirEquipe('clientes.editar'), async (c) => {
+  const cid = Number(c.req.param('cid'))
+  const b = Number.isInteger(cid) ? await c.env.DB.prepare('SELECT id, email, ativo FROM compradores WHERE id = ?').bind(cid).first<{ id: number; email: string; ativo: number }>() : null
+  if (!b) return c.json({ erro: 'Comprador não encontrado.' }, 404)
+  if (!b.ativo) return c.json({ erro: 'Este comprador está inativo.' }, 400)
+  const senha = senhaProvisoria()
+  const { hash, salt } = await gerarHashSenha(senha)
+  await c.env.DB.prepare('UPDATE compradores SET senha_hash = ?, senha_salt = ?, deve_trocar_senha = 1, tentativas_falhas = 0, bloqueado_ate = 0 WHERE id = ?').bind(hash, salt, cid).run()
+  await c.env.DB.prepare("DELETE FROM sessoes WHERE tipo = 'comprador' AND usuario_id = ?").bind(cid).run()
+  await c.env.DB.prepare('INSERT INTO auditoria (quando, usuario_id, acao, detalhe) VALUES (?, ?, ?, ?)').bind(Date.now(), c.get('usuario').id, 'comprador.senha', b.email).run()
+  return c.json({ senha, email: b.email })
 })
 
 // Importação em massa de clientes (a chave é o CNPJ; vendedor e transportadora entram pelo nome já cadastrado).

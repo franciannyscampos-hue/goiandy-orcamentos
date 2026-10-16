@@ -44,3 +44,10 @@ export async function sha256Hex(texto: string): Promise<string> {
   const bits = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(texto))
   return [...new Uint8Array(bits)].map((b) => b.toString(16).padStart(2, '0')).join('')
 }
+
+// Senha provisória legível (sem letras que se confundem)
+export function senhaProvisoria(): string {
+  const letras = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789'
+  const bytes = crypto.getRandomValues(new Uint8Array(12))
+  return Array.from(bytes, (b) => letras[b % letras.length]).join('')
+}

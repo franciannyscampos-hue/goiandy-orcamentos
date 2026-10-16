@@ -296,12 +296,31 @@ export function telaClientes(usuario) {
           el(
             'div',
             { class: 'linha-comprador' + (b.ativo ? '' : ' inativo') },
-            el('div', {}, el('strong', {}, b.nome), b.ativo ? '' : el('span', { class: 'selo' }, 'Inativo'), el('div', { class: 'mudo pequeno' }, [b.email, b.telefone ? formatarTelefone(b.telefone) : ''].filter(Boolean).join(' · '))),
-            podeEditar ? el('button', { type: 'button', class: 'link', onclick: () => formularioComprador(b) }, 'Editar') : ''
+            el('div', {}, el('strong', {}, b.nome), b.ativo ? '' : el('span', { class: 'selo' }, 'Inativo'), b.ativo && !b.tem_senha ? el('span', { class: 'selo selo-alerta' }, 'sem senha') : '', el('div', { class: 'mudo pequeno' }, [b.email, b.telefone ? formatarTelefone(b.telefone) : ''].filter(Boolean).join(' · '))),
+            el('div', { class: 'acoes-cartao', style: 'margin:0' },
+              podeEditar && b.ativo ? el('button', { type: 'button', class: 'link', onclick: () => senhaDeAcesso(b) }, b.tem_senha ? 'Nova senha' : 'Criar senha') : '',
+              podeEditar ? el('button', { type: 'button', class: 'link', onclick: () => formularioComprador(b) }, 'Editar') : '')
           )
         ),
         podeEditar ? el('button', { type: 'button', class: 'secundario botao-pequeno', onclick: () => formularioComprador(null) }, '+ Comprador') : ''
       )
+    }
+    async function senhaDeAcesso(b) {
+      if (b.tem_senha && !confirm(`Gerar uma nova senha para ${b.nome}? A senha atual deixa de funcionar e ele será desconectado.`)) return
+      const r = await api(`/clientes/compradores/${b.id}/senha`, { metodo: 'POST', corpo: {} })
+      if (!r.ok) return alert(r.dados.erro || 'Não foi possível gerar a senha.')
+      const link = location.origin + '/portal/'
+      const texto = `Acesso ao catálogo Goiandy\nEndereço: ${link}\nE-mail: ${r.dados.email}\nSenha provisória: ${r.dados.senha}\n(Você vai criar uma senha própria no primeiro acesso.)`
+      const dialogo = el('dialog', { class: 'janela' }, el('h3', {}, 'Acesso do comprador'))
+      dialogo.addEventListener('close', () => { dialogo.remove(); mostrarCompradores(); carregar() })
+      const copiar = el('button', { type: 'button', class: 'secundario' }, 'Copiar mensagem')
+      copiar.addEventListener('click', async () => { try { await navigator.clipboard.writeText(texto); copiar.textContent = 'Copiado!' } catch { copiar.textContent = 'Selecione e copie o texto acima' } })
+      dialogo.append(
+        el('p', { class: 'mudo pequeno' }, 'Esta senha aparece só agora. Envie ao comprador (por WhatsApp, por exemplo); ele troca no primeiro acesso.'),
+        el('pre', { class: 'senha-caixa', style: 'white-space:pre-wrap;font-size:.95rem;letter-spacing:0' }, texto),
+        el('div', { class: 'botoes' }, copiar, el('button', { type: 'button', onclick: () => dialogo.close() }, 'Fechar')))
+      document.body.append(dialogo)
+      dialogo.showModal()
     }
     function formularioComprador(b) {
       const f = el('form', { class: 'sub-form' })

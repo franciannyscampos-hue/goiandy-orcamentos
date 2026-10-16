@@ -17,6 +17,17 @@ export type UsuarioSessao = {
   deve_trocar_senha: boolean
 }
 
+export type CompradorSessao = {
+  id: number
+  nome: string
+  email: string
+  cliente_id: number
+  cliente_nome: string
+  ver_precos: boolean
+  deve_trocar_senha: boolean
+}
+
 export type Variaveis = {
   usuario: UsuarioSessao
+  comprador: CompradorSessao
 }

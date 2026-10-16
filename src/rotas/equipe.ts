@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import type { Bindings, Variaveis } from '../types'
 import { exigirEquipe } from '../auth/sessao'
-import { gerarHashSenha } from '../auth/crypto'
+import { gerarHashSenha, senhaProvisoria } from '../auth/crypto'
 import { PERMISSOES } from '../db/preparar'
 import { emailValido } from '../util/validar'
 
@@ -25,11 +25,6 @@ const rotas = new Hono<{ Bindings: Bindings; Variables: Variaveis }>()
 rotas.use('*', exigirEquipe('equipe.gerenciar'))
 
 // Senha provisória legível (sem 0/O, 1/l/I), mostrada uma única vez para quem cria o usuário.
-function senhaProvisoria(): string {
-  const letras = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789'
-  const bytes = crypto.getRandomValues(new Uint8Array(12))
-  return Array.from(bytes, (b) => letras[b % letras.length]).join('')
-}
 
 async function registrar(db: D1Database, usuarioId: number, acao: string, detalhe: string) {
   await db.prepare('INSERT INTO auditoria (quando, usuario_id, acao, detalhe) VALUES (?, ?, ?, ?)').bind(Date.now(), usuarioId, acao, detalhe).run()

@@ -189,5 +189,9 @@ export const migracoes: Migracao[] = [
       )`,
       `CREATE INDEX IF NOT EXISTS idx_liberacoes_tabela ON liberacoes(tabela_id)`
     ]
+  },
+  {
+    id: '005_portal_senha',
+    comandos: [`ALTER TABLE compradores ADD COLUMN deve_trocar_senha INTEGER NOT NULL DEFAULT 1`]
   }
 ]
