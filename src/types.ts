@@ -1,6 +1,7 @@
 export type Bindings = {
   ASSETS: Fetcher
   DB: D1Database
+  ARQUIVOS: R2Bucket
   ADMIN_EMAIL?: string
   ADMIN_SENHA?: string
   ADMIN_REDEFINIR_SENHA?: string

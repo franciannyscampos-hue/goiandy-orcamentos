@@ -8,5 +8,11 @@
       "database_name": "goiandy-orcamentos-db",
       "database_id": "5f86046d-2acb-4e5c-a134-432704cc262e"
     }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "ARQUIVOS",
+      "bucket_name": "goiandy-orcamentos-arquivos"
+    }
   ]
 }

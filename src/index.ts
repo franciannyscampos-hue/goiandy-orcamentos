@@ -17,7 +17,7 @@ app.use('*', async (c, next) => {
 })
 
 app.get('/api/health', (c) =>
-  c.json({ ok: true, app: 'goiandy-orcamentos', hora: new Date().toISOString() })
+  c.json({ ok: true, app: 'goiandy-orcamentos', hora: new Date().toISOString(), banco: !!c.env.DB, arquivos: !!c.env.ARQUIVOS })
 )
 
 // Tudo que é /api abaixo daqui precisa do banco pronto
