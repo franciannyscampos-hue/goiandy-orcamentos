@@ -129,3 +129,12 @@ progress { width: 100%; height: 10px; }
 .lista-liberacao.alta { max-height: 360px; }
 .ind-liberacao { display: grid; gap: 2px; padding: 8px 0; border-bottom: 1px solid var(--borda); }
 .ind-liberacao:last-child { border-bottom: 0; }
+
+.marca-linha { display: flex; gap: 16px; align-items: center; margin: 8px 0 4px; flex-wrap: wrap; }
+.marca-logo { width: 140px; height: 80px; border: 1px solid var(--borda); border-radius: 8px; display: grid; place-items: center; background: #fff; overflow: hidden; }
+.marca-logo img { max-width: 100%; max-height: 100%; object-fit: contain; }
+.marca-banners { display: grid; gap: 10px; margin: 8px 0; }
+.marca-banner { display: flex; gap: 12px; align-items: center; }
+.marca-banner img { width: 100%; max-width: 420px; aspect-ratio: 3 / 1; object-fit: cover; border: 1px solid var(--borda); border-radius: 8px; }
+
+.linha-ind { display: flex; justify-content: space-between; gap: 12px; align-items: center; flex-wrap: wrap; }

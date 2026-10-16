@@ -8,6 +8,7 @@ import { rotasTabelas } from './rotas/tabelas'
 import { rotasItens } from './rotas/itens'
 import { rotasLiberacoes } from './rotas/liberacoes'
 import { rotasPortal } from './rotas/portal'
+import { rotasMarca } from './rotas/marca'
 import { rotasIndustrias, rotasTransportadoras, rotasVendedores } from './rotas/cadastros'
 
 const app = new Hono<{ Bindings: Bindings; Variables: Variaveis }>()
@@ -34,7 +35,7 @@ app.use('/api/*', async (c, next) => {
 app.use('/api/*', async (c, next) => {
   if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(c.req.method)) {
     const tipo = c.req.header('content-type') ?? ''
-    const envioDeFoto = c.req.method === 'POST' && /^\/api\/itens\/(fotos-lote|\d+\/fotos\/\d)/.test(c.req.path) && tipo.startsWith('image/')
+    const envioDeFoto = c.req.method === 'POST' && /^\/api\/(itens\/(fotos-lote|\d+\/fotos\/\d)|marca\/industria\/\d+\/(logo|banners))/.test(c.req.path) && tipo.startsWith('image/')
     if (!tipo.includes('application/json') && !envioDeFoto) return c.json({ erro: 'Formato de pedido inválido.' }, 415)
   }
   await next()
@@ -49,6 +50,7 @@ app.route('/api/tabelas', rotasTabelas)
 app.route('/api/itens', rotasItens)
 app.route('/api/liberacoes', rotasLiberacoes)
 app.route('/api/portal', rotasPortal)
+app.route('/api/marca', rotasMarca)
 app.route('/api/industrias', rotasIndustrias)
 
 app.onError((erro, c) => {

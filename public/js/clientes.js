@@ -356,6 +356,7 @@ export function telaClientes(usuario) {
       if (!r.ok) return areaLiberacao.replaceChildren(el('h4', {}, 'Tabelas liberadas'), el('p', { class: 'mudo' }, r.dados.erro || 'Não foi possível carregar.'))
       const industrias = r.dados.industrias
       const marcadas = new Set()
+      const compram = new Set(industrias.filter((i) => i.compra).map((i) => i.id))
       for (const i of industrias) for (const t of i.tabelas) if (t.liberada) marcadas.add(t.id)
       const resumo = el('span', { class: 'mudo pequeno' })
       const lista = el('div', { class: 'lista-liberacao' })
@@ -373,7 +374,12 @@ export function telaClientes(usuario) {
             .filter((i) => !q || semAcento(i.nome).includes(q))
             .map((i) =>
               el('div', { class: 'ind-liberacao' },
-                el('strong', {}, i.nome),
+                el('div', { class: 'linha-ind' }, el('strong', {}, i.nome), (() => {
+                  const cx = el('input', { type: 'checkbox', disabled: !podeEditar })
+                  cx.checked = compram.has(i.id)
+                  cx.addEventListener('change', () => { cx.checked ? compram.add(i.id) : compram.delete(i.id) })
+                  return el('label', { class: 'campo-check-linha pequeno mudo', title: 'Marcada: aparece em "Suas indústrias". Desmarcada: aparece como sugestão ("você ainda não compra, mas pode gostar").' }, cx, ' já compra desta indústria')
+                })()),
                 ...i.tabelas.map((t) => {
                   const cx = el('input', { type: 'checkbox', disabled: !podeEditar })
                   cx.checked = marcadas.has(t.id)
@@ -392,7 +398,7 @@ export function telaClientes(usuario) {
             el('button', { type: 'button', class: 'secundario botao-pequeno', onclick: () => { marcadas.clear(); desenharLista(); atualizarResumo() } }, 'Limpar tudo'),
             el('button', { type: 'button', class: 'botao-pequeno', onclick: async () => {
               msg.replaceChildren()
-              const s = await api('/liberacoes/cliente/' + idAtual, { metodo: 'PUT', corpo: { tabelas: [...marcadas] } })
+              const s = await api('/liberacoes/cliente/' + idAtual, { metodo: 'PUT', corpo: { tabelas: [...marcadas], compram: [...compram].filter((x) => industrias.find((i) => i.id === x && i.tabelas.some((t) => marcadas.has(t.id)))) } })
               msg.replaceChildren(s.ok ? el('div', { class: 'ok' }, 'Liberação salva.') : el('div', { class: 'erro', role: 'alert' }, s.dados.erro || 'Não foi possível salvar.'))
               if (s.ok) carregar()
             } }, 'Salvar liberação'))

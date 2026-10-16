@@ -37,14 +37,16 @@ rotasLiberacoes.get('/cliente/:id', exigirEquipe('clientes.ver'), async (c) => {
     if (!mapa.has(iid)) mapa.set(iid, { id: iid, nome: l.industria as string, tabelas: [] })
     mapa.get(iid)!.tabelas.push({ id: l.tabela_id, nome: l.nome, tipo: l.tipo, prazo: l.prazo, vencimento: l.vencimento, ativo: !!l.ativo, padrao: !!l.padrao, liberada: !!l.liberada })
   }
-  return c.json({ ver_precos: !!cli.ver_precos, industrias: [...mapa.values()] })
+  const compra = await c.env.DB.prepare('SELECT industria_id FROM cliente_industrias_compra WHERE cliente_id = ?').bind(id).all<{ industria_id: number }>()
+  const set = new Set(compra.results.map((x) => x.industria_id))
+  return c.json({ ver_precos: !!cli.ver_precos, industrias: [...mapa.values()].map((i) => ({ ...i, compra: set.has(i.id) })) })
 })
 
 // Define de uma vez as tabelas liberadas do cliente
 rotasLiberacoes.put('/cliente/:id', exigirEquipe('clientes.editar'), async (c) => {
   const id = Number(c.req.param('id'))
   if (!(await c.env.DB.prepare('SELECT id FROM clientes WHERE id = ?').bind(id).first())) return c.json({ erro: 'Cliente não encontrado.' }, 404)
-  const b = (await c.req.json().catch(() => ({}))) as { tabelas?: unknown }
+  const b = (await c.req.json().catch(() => ({}))) as { tabelas?: unknown; compram?: unknown }
   const tabelas = ids(b.tabelas)
   if (tabelas.length > 2000) return c.json({ erro: 'Tabelas demais de uma vez.' }, 400)
   const agora = Date.now()
@@ -53,6 +55,12 @@ rotasLiberacoes.put('/cliente/:id', exigirEquipe('clientes.editar'), async (c) =
     comandos.push(
       c.env.DB.prepare(`INSERT OR IGNORE INTO liberacoes (cliente_id, tabela_id, criado_em) SELECT ?, id, ? FROM tabelas_preco WHERE id IN (${grupo.map(() => '?').join(',')})`).bind(id, agora, ...grupo)
     )
+  }
+  if (Array.isArray(b.compram)) {
+    comandos.push(c.env.DB.prepare('DELETE FROM cliente_industrias_compra WHERE cliente_id = ?').bind(id))
+    for (const grupo of pedacos(ids(b.compram), 90)) {
+      comandos.push(c.env.DB.prepare(`INSERT OR IGNORE INTO cliente_industrias_compra (cliente_id, industria_id) SELECT ?, id FROM industrias WHERE id IN (${grupo.map(() => '?').join(',')})`).bind(id, ...grupo))
+    }
   }
   for (const lote of pedacos(comandos, 100)) await c.env.DB.batch(lote)
   await registrar(c.env.DB, c.get('usuario').id, 'liberacao.cliente', `cliente ${id}: ${tabelas.length} tabela(s)`)

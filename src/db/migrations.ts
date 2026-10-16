@@ -193,5 +193,41 @@ export const migracoes: Migracao[] = [
   {
     id: '005_portal_senha',
     comandos: [`ALTER TABLE compradores ADD COLUMN deve_trocar_senha INTEGER NOT NULL DEFAULT 1`]
+  },
+  {
+    id: '006_marca_busca_compra',
+    comandos: [
+      // Logo e banners das indústrias (arquivos ficam no R2; aqui só a chave)
+      // (a coluna logo_chave já existe desde a primeira migração, vazia/NULL)
+      `ALTER TABLE industrias ADD COLUMN logo_tipo TEXT NOT NULL DEFAULT ''`,
+      `CREATE TABLE IF NOT EXISTS banners (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        industria_id INTEGER NOT NULL REFERENCES industrias(id),
+        chave TEXT NOT NULL,
+        tipo_conteudo TEXT NOT NULL DEFAULT 'image/jpeg',
+        criado_em INTEGER NOT NULL
+      )`,
+      `CREATE INDEX IF NOT EXISTS idx_banners_industria ON banners(industria_id)`,
+      // Indústrias que o cliente já compra (o resto liberado aparece como sugestão)
+      `CREATE TABLE IF NOT EXISTS cliente_industrias_compra (
+        cliente_id INTEGER NOT NULL REFERENCES clientes(id),
+        industria_id INTEGER NOT NULL REFERENCES industrias(id),
+        PRIMARY KEY (cliente_id, industria_id)
+      )`,
+      // Busca rápida por palavra (ignora acento e maiúscula) para a busca do portal
+      `CREATE VIRTUAL TABLE IF NOT EXISTS itens_busca USING fts5(referencia, descricao, content='itens', content_rowid='id', tokenize='unicode61 remove_diacritics 2')`,
+      `CREATE TRIGGER IF NOT EXISTS itens_busca_ai AFTER INSERT ON itens BEGIN
+         INSERT INTO itens_busca(rowid, referencia, descricao) VALUES (new.id, new.referencia, new.descricao);
+       END`,
+      `CREATE TRIGGER IF NOT EXISTS itens_busca_ad AFTER DELETE ON itens BEGIN
+         INSERT INTO itens_busca(itens_busca, rowid, referencia, descricao) VALUES ('delete', old.id, old.referencia, old.descricao);
+       END`,
+      `CREATE TRIGGER IF NOT EXISTS itens_busca_au AFTER UPDATE OF referencia, descricao ON itens
+         WHEN old.referencia IS NOT new.referencia OR old.descricao IS NOT new.descricao BEGIN
+         INSERT INTO itens_busca(itens_busca, rowid, referencia, descricao) VALUES ('delete', old.id, old.referencia, old.descricao);
+         INSERT INTO itens_busca(rowid, referencia, descricao) VALUES (new.id, new.referencia, new.descricao);
+       END`,
+      `INSERT INTO itens_busca(itens_busca) VALUES ('rebuild')`
+    ]
   }
 ]

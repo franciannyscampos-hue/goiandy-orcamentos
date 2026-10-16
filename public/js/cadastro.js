@@ -114,6 +114,7 @@ export function telaCadastro(config, usuario) {
     const botaoCancelar = el('button', { type: 'button', class: 'secundario' }, 'Cancelar')
     const dialogo = el('dialog', { class: 'janela' }, el('h3', {}, novo ? 'Novo cadastro' : 'Editar cadastro'), form)
     form.append(grade, el('div', { class: 'botoes' }, botaoCancelar, botaoSalvar))
+    if (config.extras && !novo) form.after(config.extras(item, usuario))
 
     botaoCancelar.addEventListener('click', () => dialogo.close())
     dialogo.addEventListener('close', () => dialogo.remove())

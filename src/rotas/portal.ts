@@ -75,13 +75,14 @@ rotasPortal.post('/trocar-senha', exigirComprador(), async (c) => {
   return c.json({ ok: true })
 })
 
-// Indústrias e tabelas liberadas para o CNPJ do comprador
+// Indústrias e tabelas liberadas para o CNPJ do comprador, com logo, banners e se o cliente já compra
 rotasPortal.get('/catalogo', exigirComprador(), async (c) => {
   const eu = c.get('comprador')
   const hoje = hojeCuiaba()
   const r = await c.env.DB.prepare(
-    `SELECT i.id AS industria_id, i.nome AS industria, i.tipo_frete, i.pedido_minimo, i.informacoes, i.tabela_padrao_id,
-            t.id AS tabela_id, t.nome, t.tipo, t.prazo, t.vencimento
+    `SELECT i.id AS industria_id, i.nome AS industria, i.tipo_frete, i.pedido_minimo, i.informacoes, i.tabela_padrao_id, (i.logo_chave <> '') AS tem_logo,
+            t.id AS tabela_id, t.nome, t.tipo, t.prazo, t.vencimento,
+            EXISTS (SELECT 1 FROM cliente_industrias_compra k WHERE k.cliente_id = l.cliente_id AND k.industria_id = i.id) AS compra
        FROM liberacoes l
        JOIN tabelas_preco t ON t.id = l.tabela_id AND t.ativo = 1
        JOIN industrias i ON i.id = t.industria_id AND i.ativo = 1
@@ -91,11 +92,66 @@ rotasPortal.get('/catalogo', exigirComprador(), async (c) => {
   const mapa = new Map<number, Record<string, unknown> & { tabelas: unknown[] }>()
   for (const l of r.results) {
     const id = l.industria_id as number
-    if (!mapa.has(id)) mapa.set(id, { id, nome: l.industria, tipo_frete: l.tipo_frete, pedido_minimo: eu.ver_precos ? l.pedido_minimo : null, informacoes: l.informacoes, tabelas: [] })
+    if (!mapa.has(id)) mapa.set(id, { id, nome: l.industria, tipo_frete: l.tipo_frete, pedido_minimo: eu.ver_precos ? l.pedido_minimo : null, informacoes: l.informacoes, tem_logo: !!l.tem_logo, compra: !!l.compra, tabelas: [] })
     const venc = (l.vencimento as string) || ''
     mapa.get(id)!.tabelas.push({ id: l.tabela_id, nome: l.nome, tipo: l.tipo, prazo: l.prazo, vencimento: venc, vencida: !!venc && venc < hoje, padrao: l.tabela_padrao_id === l.tabela_id })
   }
-  return c.json({ ver_precos: eu.ver_precos, industrias: [...mapa.values()] })
+  const ids = [...mapa.keys()]
+  let banners: { id: number; industria_id: number }[] = []
+  if (ids.length) {
+    const b = await c.env.DB.prepare(`SELECT id, industria_id FROM banners WHERE industria_id IN (${ids.map(() => '?').join(',')}) ORDER BY industria_id, id`).bind(...ids).all<{ id: number; industria_id: number }>()
+    banners = b.results
+  }
+  return c.json({ ver_precos: eu.ver_precos, industrias: [...mapa.values()], banners })
+})
+
+// A indústria só é entregue (logo/banner) se estiver liberada para o CNPJ
+async function industriaLiberada(c: { env: Bindings }, clienteId: number, industriaId: number) {
+  return c.env.DB.prepare(
+    `SELECT 1 AS ok FROM liberacoes l JOIN tabelas_preco t ON t.id = l.tabela_id AND t.ativo = 1 JOIN industrias i ON i.id = t.industria_id AND i.ativo = 1 WHERE l.cliente_id = ? AND i.id = ? LIMIT 1`
+  ).bind(clienteId, industriaId).first()
+}
+
+rotasPortal.get('/logo/:id', exigirComprador(), async (c) => {
+  const id = Number(c.req.param('id'))
+  if (!(await industriaLiberada(c, c.get('comprador').cliente_id, id))) return c.json({ erro: 'Não encontrada.' }, 404)
+  const i = await c.env.DB.prepare('SELECT logo_chave, logo_tipo FROM industrias WHERE id = ?').bind(id).first<{ logo_chave: string; logo_tipo: string }>()
+  const o = i?.logo_chave ? await c.env.ARQUIVOS.get(i.logo_chave) : null
+  if (!i || !o) return c.json({ erro: 'Não encontrada.' }, 404)
+  return new Response(o.body, { headers: { 'Content-Type': i.logo_tipo, 'Cache-Control': 'private, max-age=600' } })
+})
+
+rotasPortal.get('/banner/:id', exigirComprador(), async (c) => {
+  const b = await c.env.DB.prepare('SELECT industria_id, chave, tipo_conteudo FROM banners WHERE id = ?').bind(Number(c.req.param('id'))).first<{ industria_id: number; chave: string; tipo_conteudo: string }>()
+  if (!b || !(await industriaLiberada(c, c.get('comprador').cliente_id, b.industria_id))) return c.json({ erro: 'Não encontrado.' }, 404)
+  const o = await c.env.ARQUIVOS.get(b.chave)
+  if (!o) return c.json({ erro: 'Não encontrado.' }, 404)
+  return new Response(o.body, { headers: { 'Content-Type': b.tipo_conteudo, 'Cache-Control': 'private, max-age=600' } })
+})
+
+// Busca em todas as indústrias liberadas (cada item vem com a indústria e a tabela onde abrir)
+rotasPortal.get('/busca', exigirComprador(), async (c) => {
+  const eu = c.get('comprador')
+  const q = (c.req.query('q') ?? '').trim().slice(0, 60)
+  const limite = Math.min(60, Math.max(1, Number(c.req.query('limite')) || 10))
+  const palavras = q.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().match(/[a-z0-9]+/g) ?? []
+  if (!palavras.length || palavras.join('').length < 2) return c.json({ itens: [] })
+  const match = palavras.slice(0, 6).map((p) => `"${p}"*`).join(' ')
+  const r = await c.env.DB.prepare(
+    `SELECT it.id, it.referencia, it.descricao, i.id AS industria_id, i.nome AS industria, MIN(p.tabela_id) AS tabela_id,
+            (SELECT f.id FROM fotos f WHERE f.item_id = it.id ORDER BY f.posicao LIMIT 1) AS foto_id
+       FROM itens_busca
+       JOIN itens it ON it.id = itens_busca.rowid
+       JOIN precos p ON p.item_id = it.id
+       JOIN liberacoes l ON l.tabela_id = p.tabela_id AND l.cliente_id = ?
+       JOIN tabelas_preco t ON t.id = p.tabela_id AND t.ativo = 1
+       JOIN industrias i ON i.id = t.industria_id AND i.ativo = 1
+      WHERE itens_busca MATCH ? AND ${ITEM_VISIVEL}
+      GROUP BY it.id
+      ORDER BY i.nome COLLATE NOCASE, it.descricao COLLATE NOCASE
+      LIMIT ?`
+  ).bind(eu.cliente_id, match, limite).all()
+  return c.json({ itens: r.results })
 })
 
 // Confere se a tabela está liberada para o CNPJ e devolve dados da tabela e da indústria

@@ -4,13 +4,13 @@ import { el, api, pode } from './util.js'
 const MAX_LADO = 1600
 
 // Reduz fotos grandes antes de enviar (economiza espaço e deixa o portal mais rápido).
-async function prepararImagem(arquivo) {
+export async function prepararImagem(arquivo, maxLado = MAX_LADO) {
   if (!/^image\/(jpeg|png|webp)$/.test(arquivo.type)) throw new Error('Use JPG, PNG ou WebP.')
   let bmp
   try { bmp = await createImageBitmap(arquivo) } catch { return arquivo }
   const maior = Math.max(bmp.width, bmp.height)
-  if (maior <= MAX_LADO && arquivo.size <= 1.5 * 1024 * 1024) return arquivo
-  const f = Math.min(1, MAX_LADO / maior)
+  if (maior <= maxLado && arquivo.size <= 1.5 * 1024 * 1024) return arquivo
+  const f = Math.min(1, maxLado / maior)
   const canvas = document.createElement('canvas')
   canvas.width = Math.round(bmp.width * f)
   canvas.height = Math.round(bmp.height * f)
@@ -22,7 +22,7 @@ async function prepararImagem(arquivo) {
   return blob || arquivo
 }
 
-async function enviarBinario(caminho, blob) {
+export async function enviarBinario(caminho, blob) {
   const r = await fetch('/api' + caminho, { method: 'POST', headers: { 'Content-Type': blob.type || 'image/jpeg' }, body: blob, credentials: 'same-origin' })
   const dados = await r.json().catch(() => ({}))
   return { ok: r.ok, dados }

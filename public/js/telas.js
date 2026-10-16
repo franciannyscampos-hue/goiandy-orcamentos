@@ -1,5 +1,6 @@
 // Configuração de cada tela de cadastro (colunas da lista e campos do formulário).
 import { brl, formatarCnpj, formatarTelefone } from './util.js'
+import { secaoMarca } from './industria-marca.js'
 
 const ativo = { nome: 'ativo', rotulo: 'Ativo', tipo: 'bool' }
 
@@ -44,6 +45,7 @@ export const telas = {
   },
   industrias: {
     titulo: 'Indústrias',
+    extras: secaoMarca,
     api: '/industrias',
     permVer: 'industrias.ver',
     permEditar: 'industrias.editar',
