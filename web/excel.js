@@ -14,3 +14,10 @@ export async function gerarModelo(colunas, exemplo) {
   const ex = exemplo.map((v) => ({ value: String(v), type: String }))
   return writeExcelFile([cab, ex], { columns: colunas.map((c) => ({ width: c.largura || 20 })) }).toBlob()
 }
+
+// Planilha simples para relatórios: cabeçalho em negrito e larguras por coluna.
+export async function gerarPlanilha(titulos, linhas, larguras = []) {
+  const cab = titulos.map((t) => ({ value: t, fontWeight: 'bold', backgroundColor: '#dbeafe' }))
+  const corpo = linhas.map((l) => l.map((v) => (typeof v === 'number' ? { value: v, type: Number } : { value: String(v ?? ''), type: String })))
+  return writeExcelFile([cab, ...corpo], { columns: titulos.map((_, i) => ({ width: larguras[i] || 18 })), stickyRowsCount: 1 }).toBlob()
+}
