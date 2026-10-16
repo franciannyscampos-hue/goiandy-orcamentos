@@ -119,5 +119,62 @@ export const migracoes: Migracao[] = [
       )`,
       `CREATE INDEX IF NOT EXISTS idx_auditoria_quando ON auditoria(quando)`
     ]
+  },
+  {
+    id: '003_tabelas_itens_fotos',
+    comandos: [
+      `CREATE TABLE IF NOT EXISTS tabelas_preco (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        industria_id INTEGER NOT NULL REFERENCES industrias(id),
+        nome TEXT NOT NULL,
+        vencimento TEXT NOT NULL DEFAULT '',
+        tipo TEXT NOT NULL DEFAULT 'prazo' CHECK (tipo IN ('vista','prazo')),
+        prazo TEXT NOT NULL DEFAULT '',
+        ativo INTEGER NOT NULL DEFAULT 1,
+        criado_em INTEGER NOT NULL,
+        UNIQUE (industria_id, nome)
+      )`,
+      `CREATE TABLE IF NOT EXISTS itens (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        industria_id INTEGER NOT NULL REFERENCES industrias(id),
+        referencia TEXT NOT NULL COLLATE NOCASE,
+        descricao TEXT NOT NULL DEFAULT '',
+        codigo_barras TEXT NOT NULL DEFAULT '',
+        categoria TEXT NOT NULL DEFAULT '',
+        marca TEXT NOT NULL DEFAULT '',
+        medida TEXT NOT NULL DEFAULT '',
+        cor TEXT NOT NULL DEFAULT '',
+        ncm TEXT NOT NULL DEFAULT '',
+        qtd_caixa INTEGER NOT NULL DEFAULT 0,
+        qtd_minima INTEGER NOT NULL DEFAULT 0,
+        nao_abre_caixa INTEGER NOT NULL DEFAULT 0,
+        ativo INTEGER NOT NULL DEFAULT 1,
+        criado_em INTEGER NOT NULL,
+        UNIQUE (industria_id, referencia)
+      )`,
+      `CREATE INDEX IF NOT EXISTS idx_itens_categoria ON itens(industria_id, categoria)`,
+      `CREATE TABLE IF NOT EXISTS precos (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        tabela_id INTEGER NOT NULL REFERENCES tabelas_preco(id),
+        item_id INTEGER NOT NULL REFERENCES itens(id),
+        preco REAL,
+        preco_promocional REAL,
+        ipi REAL NOT NULL DEFAULT 0,
+        novo INTEGER NOT NULL DEFAULT 0,
+        observacao TEXT NOT NULL DEFAULT '',
+        UNIQUE (tabela_id, item_id)
+      )`,
+      `CREATE INDEX IF NOT EXISTS idx_precos_item ON precos(item_id)`,
+      `CREATE TABLE IF NOT EXISTS fotos (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        item_id INTEGER NOT NULL REFERENCES itens(id),
+        posicao INTEGER NOT NULL CHECK (posicao BETWEEN 1 AND 5),
+        chave TEXT NOT NULL,
+        tipo_conteudo TEXT NOT NULL DEFAULT 'image/jpeg',
+        tamanho INTEGER NOT NULL DEFAULT 0,
+        criado_em INTEGER NOT NULL,
+        UNIQUE (item_id, posicao)
+      )`
+    ]
   }
 ]

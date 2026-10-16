@@ -107,3 +107,8 @@ input[type=file] { padding: 8px; }
 .cartao-perfil p { margin: 6px 0 0; }
 .lista-perm { margin: 10px 0 0; padding-left: 18px; font-size: .88rem; line-height: 1.6; }
 .grupo-perm { display: grid; gap: 6px; margin-top: 12px; }
+
+.selo-ok { background: #ecfdf3; color: #067647; }
+.acoes-cartao { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 12px; }
+.aviso-import { color: #92400e; }
+progress { width: 100%; height: 10px; }

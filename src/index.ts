@@ -4,6 +4,7 @@ import { prepararBanco } from './db/preparar'
 import { rotasAuth } from './rotas/auth'
 import { rotasClientes } from './rotas/clientes'
 import { rotasEquipe } from './rotas/equipe'
+import { rotasTabelas } from './rotas/tabelas'
 import { rotasIndustrias, rotasTransportadoras, rotasVendedores } from './rotas/cadastros'
 
 const app = new Hono<{ Bindings: Bindings; Variables: Variaveis }>()
@@ -40,6 +41,7 @@ app.route('/api/vendedores', rotasVendedores)
 app.route('/api/transportadoras', rotasTransportadoras)
 app.route('/api/clientes', rotasClientes)
 app.route('/api/equipe', rotasEquipe)
+app.route('/api/tabelas', rotasTabelas)
 app.route('/api/industrias', rotasIndustrias)
 
 app.onError((erro, c) => {
