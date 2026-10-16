@@ -6,7 +6,7 @@ const ativo: Campo = { nome: 'ativo', rotulo: 'Ativo', tipo: 'bool', padrao: tru
 const camposVendedor: Campo[] = [
     { nome: 'nome', rotulo: 'Nome', tipo: 'texto', obrigatorio: true, max: 120 },
     { nome: 'email', rotulo: 'E-mail', tipo: 'email', max: 160 },
-    { nome: 'telefone', rotulo: 'Telefone', tipo: 'texto', max: 30 },
+    { nome: 'telefone', rotulo: 'Telefone', tipo: 'telefone' },
     ativo
 ]
 export const rotasVendedores = criarCadastro('vendedores', camposVendedor, { ver: 'clientes.ver', editar: 'clientes.editar' })
@@ -15,7 +15,7 @@ const camposTransportadora: Campo[] = [
     { nome: 'codigo', rotulo: 'Código', tipo: 'texto', max: 30 },
     { nome: 'nome', rotulo: 'Nome', tipo: 'texto', obrigatorio: true, max: 160 },
     { nome: 'cnpj', rotulo: 'CNPJ', tipo: 'cnpj' },
-    { nome: 'telefone', rotulo: 'Telefone', tipo: 'texto', max: 30 },
+    { nome: 'telefone', rotulo: 'Telefone', tipo: 'telefone' },
     ativo
 ]
 export const rotasTransportadoras = criarCadastro('transportadoras', camposTransportadora, { ver: 'clientes.ver', editar: 'clientes.editar' })

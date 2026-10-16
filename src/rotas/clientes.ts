@@ -15,11 +15,11 @@ const CAMPOS_CLIENTE: Campo[] = [
   t('nome_fantasia', 'Nome fantasia'),
   t('inscricao_estadual', 'Inscrição estadual', 30),
   t('endereco', 'Endereço', 250),
-  t('cep', 'CEP', 12),
+  { nome: 'cep', rotulo: 'CEP', tipo: 'cep' },
   t('cidade', 'Cidade', 100),
   t('uf', 'UF', 2),
-  t('telefone', 'Telefone', 30),
-  t('whatsapp', 'WhatsApp', 30),
+  { nome: 'telefone', rotulo: 'Telefone', tipo: 'telefone' },
+  { nome: 'whatsapp', rotulo: 'WhatsApp', tipo: 'telefone' },
   { nome: 'email_nfe', rotulo: 'E-mail NF-e', tipo: 'email', max: 160 },
   { nome: 'email_financeiro', rotulo: 'E-mail financeiro', tipo: 'email', max: 160 },
   t('segmento', 'Segmento', 100),
@@ -34,7 +34,7 @@ const CAMPOS_CLIENTE: Campo[] = [
 const CAMPOS_COMPRADOR: Campo[] = [
   t('nome', 'Nome', 120, { obrigatorio: true }),
   { nome: 'email', rotulo: 'E-mail', tipo: 'email', obrigatorio: true, max: 160 },
-  t('telefone', 'Telefone', 30),
+  { nome: 'telefone', rotulo: 'Telefone', tipo: 'telefone' },
   { nome: 'ativo', rotulo: 'Ativo', tipo: 'bool', padrao: true }
 ]
 

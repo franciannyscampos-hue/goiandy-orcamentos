@@ -1,5 +1,5 @@
 // Tela genérica de cadastro: lista com busca, botão Novo e formulário em janela.
-import { el, api, pode } from './util.js'
+import { el, api, pode, aplicarTipo } from './util.js'
 import { abrirImportacao } from './importar.js'
 
 function criarCampo(c, valor) {
@@ -26,6 +26,7 @@ function criarCampo(c, valor) {
       min: c.tipo === 'numero' ? '0' : undefined
     })
     entrada.value = valor ?? ''
+    aplicarTipo(entrada, c.tipo)
   }
   if (c.obrigatorio) entrada.required = true
   return el('div', { class: 'campo' }, el('label', { for: id }, c.rotulo), entrada)

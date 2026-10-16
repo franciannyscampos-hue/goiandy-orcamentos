@@ -1,12 +1,12 @@
 // Tela de clientes (CNPJ): lista, ficha completa e compradores de cada CNPJ.
-import { el, api, pode, formatarCnpj } from './util.js'
+import { el, api, pode, formatarCnpj, formatarTelefone, aplicarTipo, mascaraCep } from './util.js'
 import { abrirImportacao } from './importar.js'
 
 const SECOES = [
   {
     titulo: 'Identificação',
     campos: [
-      { nome: 'cnpj', rotulo: 'CNPJ', obrigatorio: true },
+      { nome: 'cnpj', rotulo: 'CNPJ', tipo: 'cnpj', obrigatorio: true },
       { nome: 'razao_social', rotulo: 'Razão social', obrigatorio: true },
       { nome: 'nome_fantasia', rotulo: 'Nome fantasia' },
       { nome: 'inscricao_estadual', rotulo: 'Inscrição estadual' },
@@ -18,11 +18,11 @@ const SECOES = [
     titulo: 'Endereço e contato',
     campos: [
       { nome: 'endereco', rotulo: 'Endereço' },
-      { nome: 'cep', rotulo: 'CEP' },
+      { nome: 'cep', rotulo: 'CEP', tipo: 'cep' },
       { nome: 'uf', rotulo: 'UF', tipo: 'uf' },
       { nome: 'cidade', rotulo: 'Cidade', tipo: 'cidade' },
-      { nome: 'telefone', rotulo: 'Telefone' },
-      { nome: 'whatsapp', rotulo: 'WhatsApp' },
+      { nome: 'telefone', rotulo: 'Telefone', tipo: 'telefone' },
+      { nome: 'whatsapp', rotulo: 'WhatsApp', tipo: 'telefone' },
       { nome: 'email_nfe', rotulo: 'E-mail NF-e', tipo: 'email' },
       { nome: 'email_financeiro', rotulo: 'E-mail financeiro', tipo: 'email' }
     ]
@@ -42,8 +42,9 @@ function linhaCampo(rotulo, entrada, ajuda) {
 }
 
 function entradaTexto(c, valor) {
-  const e = el('input', { type: c.tipo === 'email' ? 'email' : 'text', name: c.nome, maxlength: c.max })
+  const e = el('input', { type: 'text', name: c.nome, maxlength: c.max })
   e.value = valor ?? ''
+  aplicarTipo(e, c.tipo)
   if (c.obrigatorio) e.required = true
   return e
 }
@@ -195,7 +196,6 @@ export function telaClientes(usuario) {
     let ultimoCep = ''
     campoCep.addEventListener('input', async () => {
       const d = campoCep.value.replace(/\D/g, '').slice(0, 8)
-      campoCep.value = d.length > 5 ? d.slice(0, 5) + '-' + d.slice(5) : d
       if (d.length !== 8 || d === ultimoCep) return
       ultimoCep = d
       avisoCep.className = 'dica'
@@ -242,7 +242,10 @@ export function telaClientes(usuario) {
       const d = r.dados.dados
       for (const [campo, chave] of Object.entries(mapa)) {
         const e = form.elements[campo]
-        if (e && !e.value.trim() && d[chave]) e.value = d[chave]
+        if (!e || e.value.trim() || !d[chave]) continue
+        if (campo === 'telefone') e.value = String(d[chave]).replace(/\D/g, '').length >= 10 ? formatarTelefone(d[chave]) : ''
+        else if (campo === 'cep') e.value = mascaraCep(d[chave])
+        else e.value = d[chave]
       }
       if (!campoUf.value && d.uf) definirLocal(d.uf, d.cidade)
       campoCnpj.value = formatarCnpj(digitos)
@@ -292,7 +295,7 @@ export function telaClientes(usuario) {
           el(
             'div',
             { class: 'linha-comprador' + (b.ativo ? '' : ' inativo') },
-            el('div', {}, el('strong', {}, b.nome), b.ativo ? '' : el('span', { class: 'selo' }, 'Inativo'), el('div', { class: 'mudo pequeno' }, [b.email, b.telefone].filter(Boolean).join(' · '))),
+            el('div', {}, el('strong', {}, b.nome), b.ativo ? '' : el('span', { class: 'selo' }, 'Inativo'), el('div', { class: 'mudo pequeno' }, [b.email, b.telefone ? formatarTelefone(b.telefone) : ''].filter(Boolean).join(' · '))),
             podeEditar ? el('button', { type: 'button', class: 'link', onclick: () => formularioComprador(b) }, 'Editar') : ''
           )
         ),
@@ -303,7 +306,7 @@ export function telaClientes(usuario) {
       const f = el('form', { class: 'sub-form' })
       const nome = entradaTexto({ nome: 'nome', obrigatorio: true, max: 120 }, b?.nome)
       const email = entradaTexto({ nome: 'email', tipo: 'email', obrigatorio: true, max: 160 }, b?.email)
-      const tel = entradaTexto({ nome: 'telefone', max: 30 }, b?.telefone)
+      const tel = entradaTexto({ nome: 'telefone', tipo: 'telefone' }, b?.telefone)
       const ativo = caixa('ativo', 'Ativo', b ? b.ativo : 1)
       const msg = el('div')
       const ok = el('button', { type: 'submit', class: 'botao-pequeno' }, 'Salvar comprador')

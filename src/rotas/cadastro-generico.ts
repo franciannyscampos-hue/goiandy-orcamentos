@@ -1,12 +1,12 @@
 import { Hono } from 'hono'
 import type { Bindings, Variaveis } from '../types'
 import { exigirEquipe } from '../auth/sessao'
-import { cnpjValido, emailValido, soDigitos } from '../util/validar'
+import { cnpjValido, emailValido, formatarCep, formatarTelefone, soDigitos, telefoneNormalizado } from '../util/validar'
 
 export type Campo = {
   nome: string
   rotulo: string
-  tipo: 'texto' | 'email' | 'cnpj' | 'numero' | 'bool' | 'enum'
+  tipo: 'texto' | 'email' | 'cnpj' | 'telefone' | 'cep' | 'numero' | 'bool' | 'enum'
   obrigatorio?: boolean
   max?: number
   opcoes?: string[]
@@ -26,7 +26,9 @@ export function limpar(corpo: Record<string, unknown>, campos: Campo[], parcial:
     switch (c.tipo) {
       case 'texto':
       case 'email':
-      case 'cnpj': {
+      case 'cnpj':
+      case 'telefone':
+      case 'cep': {
         let v = String(bruto ?? '').trim()
         if (c.tipo === 'email') v = v.toLowerCase()
         if (c.tipo === 'cnpj') v = soDigitos(v)
@@ -36,6 +38,22 @@ export function limpar(corpo: Record<string, unknown>, campos: Campo[], parcial:
         }
         if (v && c.tipo === 'email' && !emailValido(v)) erros.push(`${c.rotulo} não parece um e-mail válido.`)
         if (v && c.tipo === 'cnpj' && !cnpjValido(v)) erros.push(`${c.rotulo} não é um CNPJ válido.`)
+        if (v && c.tipo === 'telefone') {
+          const d = telefoneNormalizado(v)
+          if (!d) {
+            erros.push(`${c.rotulo} precisa ter DDD e número, ex.: (65) 99999-0000 ou (65) 3333-4444.`)
+            break
+          }
+          v = formatarTelefone(d)
+        }
+        if (v && c.tipo === 'cep') {
+          const d = soDigitos(v)
+          if (d.length !== 8) {
+            erros.push(`${c.rotulo} precisa ter 8 números, ex.: 78005-000.`)
+            break
+          }
+          v = formatarCep(d)
+        }
         if (v.length > (c.max ?? 500)) erros.push(`${c.rotulo} está muito longo.`)
         valores[c.nome] = v
         break

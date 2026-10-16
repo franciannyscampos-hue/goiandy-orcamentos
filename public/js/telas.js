@@ -1,5 +1,5 @@
 // Configuração de cada tela de cadastro (colunas da lista e campos do formulário).
-import { brl, formatarCnpj } from './util.js'
+import { brl, formatarCnpj, formatarTelefone } from './util.js'
 
 const ativo = { nome: 'ativo', rotulo: 'Ativo', tipo: 'bool' }
 
@@ -13,12 +13,12 @@ export const telas = {
     colunas: [
       { campo: 'nome', rotulo: 'Nome' },
       { campo: 'email', rotulo: 'E-mail' },
-      { campo: 'telefone', rotulo: 'Telefone' }
+      { campo: 'telefone', rotulo: 'Telefone', formato: formatarTelefone }
     ],
     campos: [
       { nome: 'nome', rotulo: 'Nome', tipo: 'texto', obrigatorio: true },
       { nome: 'email', rotulo: 'E-mail', tipo: 'email' },
-      { nome: 'telefone', rotulo: 'Telefone', tipo: 'texto' },
+      { nome: 'telefone', rotulo: 'Telefone', tipo: 'telefone' },
       ativo
     ]
   },
@@ -32,13 +32,13 @@ export const telas = {
       { campo: 'nome', rotulo: 'Nome' },
       { campo: 'codigo', rotulo: 'Código' },
       { campo: 'cnpj', rotulo: 'CNPJ', formato: formatarCnpj },
-      { campo: 'telefone', rotulo: 'Telefone' }
+      { campo: 'telefone', rotulo: 'Telefone', formato: formatarTelefone }
     ],
     campos: [
       { nome: 'codigo', rotulo: 'Código', tipo: 'texto' },
       { nome: 'nome', rotulo: 'Nome', tipo: 'texto', obrigatorio: true },
-      { nome: 'cnpj', rotulo: 'CNPJ', tipo: 'texto' },
-      { nome: 'telefone', rotulo: 'Telefone', tipo: 'texto' },
+      { nome: 'cnpj', rotulo: 'CNPJ', tipo: 'cnpj' },
+      { nome: 'telefone', rotulo: 'Telefone', tipo: 'telefone' },
       ativo
     ]
   },
